@@ -8,7 +8,8 @@ from scipy.ndimage import imread
 from matplotlib.pyplot import imshow, show, figure, subplot, suptitle
 import cv2 as cv
 from skimage.filters import threshold_otsu
-from skimage.morphology import closing, opening
+from skimage import transform
+from skimage.morphology import closing, opening, dilation, disk
 from skimage.measure import label, find_contours, grid_points_in_poly
 import numpy as np
 from skimage.draw import ellipse
@@ -163,6 +164,15 @@ skinMoleClosing4Last = closing(skinMoleOpenArea4, selem=data['se']['se4'][0][0])
 skinMoleOpening4Last = opening(skinMoleClosing4Last, selem=data['se']['se4'][0][0])
 #skinMoleOpening6Last = opening(skinMoleClosing6Last, selem=data['se']['se6'][0][0])
 
+mask2 = np.zeros((I.shape[0:2]), dtype=np.uint8)
+rr, cc = ellipse(round(I.shape[0]/2), round(I.shape[1]/2), round(I.shape[0]/2)-1, round(I.shape[1]/2)-1)
+
+mask2[rr, cc] = 1
+mask2 = dilation(mask2, selem=disk(30))
+
+#skinMoleSegmented0 = skinMoleOpening0Last * mask2
+skinMoleSegmented4 = skinMoleOpening4Last * mask2
+#skinMoleSegmented6 = skinMoleOpening6Last * mask2
 
 # Ground truth
 
@@ -172,10 +182,10 @@ figure(0)
 suptitle('Our - Diff - Ground truth')
 
 subplot(1, 3, 1)
-imshow(skinMoleOpening4Last, cmap='gray')
+imshow(skinMoleSegmented4, cmap='gray')
 
 subplot(1, 3, 2)
-imshow(255 - ((255 - (IS * skinMoleOpening4Last)) + (IS == skinMoleOpening4Last)), cmap='gray')
+imshow(255 - ((255 - (IS * skinMoleSegmented4)) + (IS == skinMoleSegmented4)), cmap='gray')
 
 subplot(1, 3, 3)
 imshow(IS, cmap='gray')
