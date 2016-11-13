@@ -25,11 +25,11 @@ def rgb2gray(rgb):
     return gray
 
 # Step 1
-I = imread('imgs/IMD242.bmp')
+I = imread('imgs/IMD426.bmp')
 
 # Step 2
 IGray = rgb2gray(I)
-IGaussian = cv.GaussianBlur(IGray,(9,9), 0.5)
+IGaussian = cv.GaussianBlur(IGray, (9, 9), 0.5)
 
 # Step 3
 thres = threshold_otsu(IGaussian)
@@ -176,7 +176,7 @@ skinMoleSegmented4 = skinMoleOpening4Last * mask2
 
 # Ground truth
 
-IS = imread('imgs/IMD242_lesion.bmp')
+IS = imread('imgs/IMD426_lesion.bmp')
 
 figure(0)
 suptitle('Our - Diff - Ground truth')
