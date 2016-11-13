@@ -3,11 +3,54 @@ from matplotlib.image import imread
 from skimage.color import rgb2gray , label2rgb, gray2rgb
 from skimage.filters import threshold_otsu
 from skimage.segmentation import slic, mark_boundaries
-from matplotlib.pyplot import show, imshow, subplot, figure
+from matplotlib.pyplot import show, imshow, subplot, figure, title
 from skimage.future import graph
 from matplotlib import colors
 from skimage.draw import ellipse
 from skimage.measure import label
+from mahotas.features import haralick
+#conda install -c https://conda.anaconda.org/conda-forge mahotas
+from balu.FeatureAnalysis import Bfa_jfisher
+
+def _weight_haralick(graph, src, dst, n):
+    """Callback to handle merging nodes by haralick method.
+    The method expects that the mean color of `dst` is already computed.
+    Parameters
+    ----------
+    graph : RAG
+        The graph under consideration.
+    src, dst : int
+        The vertices in `graph` to be merged.
+    n : int
+        A neighbor of `src` or `dst` or both.
+    Returns
+    -------
+    data : dict
+        A dictionary with the `"weight"` attribute set as the absolute
+        difference of the mean color between node `dst` and `n`.
+    """
+    s = np.zeros((IOriginal.shape[0:2]), dtype=np.uint8)
+    for i in graph.node[dst]['labels']:
+        s += L == i
+
+    hdst = haralick(gray2rgb(s) * I)
+
+    s = np.ones((IOriginal.shape[0:2]), dtype=np.uint8)
+    for i in graph.node[n]['labels']:
+        s += L == i
+    hn = haralick(gray2rgb(s) * I)
+
+    #print(hdst)
+    #print(hn)
+
+    J = Bfa_jfisher(hdst + hn, np.zeros(len(hdst)) + np.ones(len(hn)))
+
+    #print(J)
+
+    #diff = graph.node[dst]['mean color'] - graph.node[n]['mean color']
+    #diff = np.linalg.norm(diff)
+    #return {'weight': diff}
+    return J
 
 
 def _weight_mean_color(graph, src, dst, n):
@@ -88,7 +131,7 @@ lc = graph.draw_rag(L, g, Islic)
 L2 = graph.merge_hierarchical(L, g, thresh=50, rag_copy=False,
                               in_place_merge=True,
                               merge_func=merge_mean_color,
-                              weight_func=_weight_mean_color)
+                              weight_func=_weight_haralick)
 
 Islic2 = mark_boundaries(I, L2)
 #figure()
@@ -101,7 +144,7 @@ out = mark_boundaries(out, L2, (0, 0, 0))
 '''
 
 subplot(1, 2, 1)
-imshow(GT)
+imshow(GT, cmap='gray')
 
 subplot(1, 2, 2)
 imshow(lc2)
