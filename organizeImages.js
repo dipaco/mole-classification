@@ -77,9 +77,17 @@ fs.readdir(path.normalize(src), (err, files) => {
                 return;
             };
             if (stats.isDirectory()) {
-                // Copy the images to destination folder
+                // Copy the photos to destination folder
                 // From 'PH2 Dataset images/IMD###/IMD###_Dermoscopic_Image/IMD###.bmp' to 'imgs/IMD###.bmp'
                 fsExtra.copy(path.normalize(src + '/' + file + '/' + file + '_Dermoscopic_Image' + '/' + file + '.bmp'), path.normalize(dest + '/' + file + '.bmp'), { replace: false }, function (err) {
+                    if (err) {
+                        console.error(err);
+                        return;
+                    };
+                });
+                // Copy the manual segmented images to destination folder
+                // From 'PH2 Dataset images/IMD###/IMD###_lesion/IMD###.bmp' to 'imgs/IMD###.bmp'
+                fsExtra.copy(path.normalize(src + '/' + file + '/' + file + '_lesion' + '/' + file + '_lesion' + '.bmp'), path.normalize(dest + '/' + file + '_lesion' + '.bmp'), { replace: false }, function (err) {
                     if (err) {
                         console.error(err);
                         return;
