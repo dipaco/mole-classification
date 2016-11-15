@@ -170,7 +170,7 @@ for i in range(1, L2label.max()):
     It = (gray2rgb(L2label == i) * I)
     for j in range(len(I)):
         for k in range(len(I[j])):
-            if (L2label == i) > 0:              #??
+            if It[j][k][0] > 0 and It[j][k][1] > 0 and It[j][k][2] > 0 and:              #??
                 print('R +=', It[j][k][0])
                 R += It[j][k][0]
                 print('G +=', It[j][k][1])
@@ -234,3 +234,30 @@ imshow(GT, cmap='gray')
 subplot(1, 2, 2)
 imshow(segmented, cmap='gray')
 show()
+
+
+
+ICharacteristics = gray2rgb(segmented) * I
+
+hara = haralick(ICharacteristics, ignore_zeros=True)
+haralick_labels = ["Angular Second Moment",
+                   "Contrast",
+                   "Correlation",
+                   "Sum of Squares: Variance",
+                   "Inverse Difference Moment",
+                   "Sum Average",
+                   "Sum Variance",
+                   "Sum Entropy",
+                   "Entropy",
+                   "Difference Variance",
+                   "Difference Entropy",
+                   "Information Measure of Correlation 1",
+                   "Information Measure of Correlation 2",
+                   "Maximal Correlation Coefficient"]
+print(hara)
+print(haralick_labels)
+
+
+
+
+
