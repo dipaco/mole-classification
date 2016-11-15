@@ -158,36 +158,8 @@ out = mark_boundaries(out, L2, (0, 0, 0))
 #imshow(lc2)
 #show()
 
-'''
-s = np.ones((IOriginal.shape[0:2]), dtype=np.uint8)
-L2label = label(L2)
-
-for i in range(1, L2label.max()):
-    R = 0
-    G = 0
-    B = 0
-    count = 0
-    It = (gray2rgb(L2label == i) * I)
-    for j in range(len(I)):
-        for k in range(len(I[j])):
-            if It[j][k][0] > 0 and It[j][k][1] > 0 and It[j][k][2] > 0 and:              #??
-                print('R +=', It[j][k][0])
-                R += It[j][k][0]
-                print('G +=', It[j][k][1])
-                G += It[j][k][1]
-                print('B +=', It[j][k][2])
-                B += It[j][k][2]
-                count += 1
-    print(R/count)
-    print(G/count)
-    print(B/count)
-    imshow(gray2rgb(L2label == i) * I)
-    show()
-'''
-
 s = np.zeros((IOriginal.shape[0:2]), dtype=np.uint8)
 L2label = label(L2)
-
 
 IGray = rgb2gray(IOriginal)# * mask
 IGaussian = gaussian(IGray, sigma=0.5)
@@ -235,7 +207,32 @@ subplot(1, 2, 2)
 imshow(segmented, cmap='gray')
 show()
 
+'''
+s = np.ones((IOriginal.shape[0:2]), dtype=np.uint8)
+L2label = label(L2)
 
+for i in range(1, L2label.max()):
+    R = 0
+    G = 0
+    B = 0
+    count = 0
+    It = (gray2rgb(L2label == i) * I)
+    for j in range(len(I)):
+        for k in range(len(I[j])):
+            if It[j][k][0] > 0 and It[j][k][1] > 0 and It[j][k][2] > 0 and:              #??
+                print('R +=', It[j][k][0])
+                R += It[j][k][0]
+                print('G +=', It[j][k][1])
+                G += It[j][k][1]
+                print('B +=', It[j][k][2])
+                B += It[j][k][2]
+                count += 1
+    print(R/count)
+    print(G/count)
+    print(B/count)
+    imshow(gray2rgb(L2label == i) * I)
+    show()
+'''
 
 ICharacteristics = gray2rgb(segmented) * I
 
@@ -256,8 +253,3 @@ haralick_labels = ["Angular Second Moment",
                    "Maximal Correlation Coefficient"]
 print(hara)
 print(haralick_labels)
-
-
-
-
-
