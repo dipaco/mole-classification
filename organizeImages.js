@@ -61,11 +61,16 @@ const fs = require('fs')
     , fsExtra = require('fs.extra')
     , path = require('path')
     , dest = 'imgs'
+    , destGT = 'imgsGT'
     , src = 'PH2 Dataset images';
 
 // Creates the directory if it doesn't exist
 if (!fs.existsSync(dest)){
     fs.mkdirSync(dest);
+};
+
+if (!fs.existsSync(destGT)){
+    fs.mkdirSync(destGT);
 };
 
 fs.readdir(path.normalize(src), (err, files) => {
@@ -85,9 +90,23 @@ fs.readdir(path.normalize(src), (err, files) => {
                         return;
                     };
                 });
+            };
+        });
+    });
+});
+
+fs.readdir(path.normalize(src), (err, files) => {
+    // Iterate through files
+    files.forEach(file => {
+        fs.stat(path.normalize(src + '/' + file), (err, stats) => {
+            if (err) {
+                console.error(err);
+                return;
+            };
+            if (stats.isDirectory()) {
                 // Copy the manual segmented images to destination folder
                 // From 'PH2 Dataset images/IMD###/IMD###_lesion/IMD###.bmp' to 'imgs/IMD###.bmp'
-                fsExtra.copy(path.normalize(src + '/' + file + '/' + file + '_lesion' + '/' + file + '_lesion' + '.bmp'), path.normalize(dest + '/' + file + '_lesion' + '.bmp'), { replace: false }, function (err) {
+                fsExtra.copy(path.normalize(src + '/' + file + '/' + file + '_lesion' + '/' + file + '_lesion.bmp'), path.normalize(destGT + '/' + file + '_lesion.bmp'), { replace: false }, function (err) {
                     if (err) {
                         console.error(err);
                         return;

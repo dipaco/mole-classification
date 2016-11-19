@@ -2,5 +2,7 @@ node_modules
 .DS_Store
 **/.idea/**
 **/imgs/**
+**/imgsGT/**
+**/our_segmentation/**
 **/balu/**
 **/PH2 Dataset images/**
