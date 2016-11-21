@@ -6,14 +6,14 @@ Requeriments:
 
 import numpy as np
 from matplotlib.image import imread
-from skimage.color import rgb2gray , label2rgb, gray2rgb
+from skimage.color import rgb2gray, label2rgb, gray2rgb
 from skimage.filters import threshold_otsu
 from skimage.segmentation import slic, mark_boundaries
-from matplotlib.pyplot import show, imshow, subplot, figure, title, imsave
+from matplotlib.pyplot import show, imshow, subplot, figure, title, imsave, suptitle
 from skimage.future import graph
 from matplotlib import colors
 from skimage.draw import ellipse
-from skimage.measure import label
+from skimage.measure import label, compare_mse, compare_ssim, compare_psnr
 from mahotas.features import haralick
 #conda install -c https://conda.anaconda.org/conda-forge mahotas
 from balu.FeatureAnalysis import Bfa_jfisher
@@ -22,6 +22,7 @@ from skimage.morphology import opening, disk, closing
 import os
 import fnmatch
 from scipy.ndimage.morphology import binary_fill_holes
+from balu.FeatureExtraction import Bfx_haralick, Bfx_geo, Bfx_basicgeo
 
 def magic(segmentationProcess=True, saveSegmentation=True, featuresProcess=True):
     global path, pathSegmentation
@@ -30,6 +31,14 @@ def magic(segmentationProcess=True, saveSegmentation=True, featuresProcess=True)
         counter = 0
         if not os.path.exists(pathSegmentation):
             os.makedirs(pathSegmentation)
+
+    def compare_jona(img1, img2):
+        c = 0
+        for i in range(len(GT)):
+            for j in range(len(GT[i])):
+                if GT[i][j] == Isegmented[i][j]:
+                    c += 1
+        return c / (len(GT) * len(GT[0])), 0.58
 
     def _weight_haralick(graph, src, dst, n):
         """Callback to handle merging nodes by haralick method.
@@ -70,7 +79,6 @@ def magic(segmentationProcess=True, saveSegmentation=True, featuresProcess=True)
         #diff = np.linalg.norm(diff)
         #return {'weight': diff}
         return J
-
 
     def _weight_mean_color(graph, src, dst, n):
         """Callback to handle merging nodes by recomputing mean color.
@@ -204,7 +212,7 @@ def magic(segmentationProcess=True, saveSegmentation=True, featuresProcess=True)
 
             slabel = label(sMaskOpen)
 
-            segmented = np.zeros((IOriginal.shape[0:2]), dtype=np.uint8)
+            Isegmented = np.zeros((IOriginal.shape[0:2]), dtype=np.uint8)
             max = 0
             iMax = 0
             for i in range(1, slabel.max()):
@@ -212,22 +220,22 @@ def magic(segmentationProcess=True, saveSegmentation=True, featuresProcess=True)
                     max = np.sum(slabel == i)
                     iMax = i
 
-            segmented = slabel == iMax
+            Isegmented = slabel == iMax
 
-            if segmented[0][0] and segmented[0][len(segmented[0])-1] and segmented[len(segmented)-1][0] and segmented[len(segmented)-1][len(segmented[0])-1]:
-                segmented = np.invert(segmented)
+            if Isegmented[0][0] and Isegmented[0][len(Isegmented[0])-1] and Isegmented[len(Isegmented)-1][0] and Isegmented[len(Isegmented)-1][len(Isegmented[0])-1]:
+                Isegmented = np.invert(Isegmented)
 
-            segmented = binary_fill_holes(segmented)
+            Isegmented = binary_fill_holes(Isegmented)
 
             #subplot(1, 2, 1)
             #imshow(GT, cmap='gray')
 
             #subplot(1, 2, 2)
-            #imshow(segmented, cmap='gray')
+            #imshow(Isegmented, cmap='gray')
             #show()
 
             if saveSegmentation:
-                imsave(pathSegmentation + '/' + image[:-4] + '_our.png', segmented, cmap='gray')
+                imsave(pathSegmentation + '/' + image[:-4] + '_our.png', Isegmented, cmap='gray')
                 counter += 1
                 print(counter, '/', len(fnmatch.filter(os.listdir('imgs'), '*.bmp')))
 
@@ -257,9 +265,45 @@ def magic(segmentationProcess=True, saveSegmentation=True, featuresProcess=True)
                 imshow(gray2rgb(L2label == i) * I)
                 show()
             '''
-        if featuresProcess:
+        if not segmentationProcess:
+            IOriginal = imread(path + '/' + image)
 
-            ICharacteristics = gray2rgb(segmented) * I
+            mask = np.zeros((IOriginal.shape[0:2]), dtype=np.uint8)
+            rr, cc = ellipse(round(IOriginal.shape[0] / 2), round(IOriginal.shape[1] / 2),
+                             round(IOriginal.shape[0] / 2) - 1, round(IOriginal.shape[1] / 2) - 1)
+            mask[rr, cc] = 1
+
+            maskrgb = gray2rgb(mask)
+
+            I = maskrgb * IOriginal
+
+            GT = (rgb2gray(imread(path + 'GT/' + image[:-4] + '_lesion.bmp').astype(float)) * mask) > 120
+
+            Isegmented255 = rgb2gray(imread(pathSegmentation + '/' + image[:-4] + '_our.png').astype(float))
+            Isegmented = Isegmented255 > 120
+
+        if featuresProcess:
+            """
+            TO-DO:
+                - Geo                   *
+                - hu                    *
+                - flusser               *
+                - furier                *
+                - Haralick
+                - Entropia
+                - Media
+                - Algo más
+                - Otra cosa
+                - Y ajá
+                - gabor
+
+
+                - Eliminar cositas constantes
+                - Feature selection para sacar las mejores
+            """
+
+            '''
+            ICharacteristics = gray2rgb(Isegmented) * I
 
             hara = haralick(ICharacteristics, ignore_zeros=True)
             haralick_labels = ["Angular Second Moment",
@@ -278,9 +322,43 @@ def magic(segmentationProcess=True, saveSegmentation=True, featuresProcess=True)
                                "Maximal Correlation Coefficient"]
             print(hara)
             print(haralick_labels)
+            '''
+
+            '''
+            IGreenChannel = I[:, :, 1]
+            X, Xn = Bfx_haralick(IGreenChannel, Isegmented, options={'dharalick': 3})
+            print(X)
+            print(Xn)
+            '''
+
+            #print('mse ', image[:-4], compare_mse(GT, Isegmented))
+            #mean_mse += compare_mse(GT, Isegmented)
+            #print('ssim', image[:-4], compare_ssim(GT, Isegmented))
+            #mean_ssim += compare_ssim(GT, Isegmented)
+            #print('pnsr', image[:-4], compare_psnr(GT, Isegmented))
+            #mean_pnsr += compare_psnr(GT, Isegmented)
+            #print('jona', image[:-4], compare_jona(GT, Isegmented))
+            #mean_jona += compare_jona(GT, Isegmented)
+            #print('')
+
+            jona, mean_jona = compare_jona(GT, Isegmented)
+
+            if (jona >= mean_jona) and (np.sum(Isegmented255) > 0):
+                options = {'b': [
+                    {'name': 'basicgeo', 'options': {'show': False}},                       # basic geometric features
+                    {'name': 'hugeo', 'options': {'show': False}},                          # Hu moments
+                    {'name': 'flusser', 'options': {'show': False}},                        # Flusser moments
+                    {'name': 'fourierdes', 'options': {'show': False, 'Nfourierdes': 12}}   # Fourier descriptors
+                ]}
+
+                X, Xn = Bfx_geo(Isegmented255, options)
+                print(X)
+                print(Xn)
+
+
 
 
 path = 'imgs'
 pathSegmentation = 'our_segmentation'
-magic(True, True, False)
+magic(False, False, True)
 
