@@ -23,6 +23,8 @@ import os
 import fnmatch
 from scipy.ndimage.morphology import binary_fill_holes
 from balu.FeatureExtraction import Bfx_haralick, Bfx_geo, Bfx_basicgeo
+from skimage.exposure import histogram
+from scipy.special import entr
 
 def magic(segmentationProcess=True, saveSegmentation=True, featuresProcess=True):
     global path, pathSegmentation
@@ -31,6 +33,10 @@ def magic(segmentationProcess=True, saveSegmentation=True, featuresProcess=True)
         counter = 0
         if not os.path.exists(pathSegmentation):
             os.makedirs(pathSegmentation)
+
+    if featuresProcess:
+        X = []
+        Xn = []
 
     def compare_jona(img1, img2):
         c = 0
@@ -289,12 +295,9 @@ def magic(segmentationProcess=True, saveSegmentation=True, featuresProcess=True)
                 - hu                    *
                 - flusser               *
                 - furier                *
-                - Haralick
-                - Entropia
-                - Media
-                - Algo más
-                - Otra cosa
-                - Y ajá
+                - Haralick              *
+                - Entropy               *
+                - Mean
                 - gabor
 
 
@@ -344,21 +347,75 @@ def magic(segmentationProcess=True, saveSegmentation=True, featuresProcess=True)
             jona, mean_jona = compare_jona(GT, Isegmented)
 
             if (jona >= mean_jona) and (np.sum(Isegmented255) > 0):
+                Xstack = []
+                Xnstack = []
+                print(image[: -4])
+
                 options = {'b': [
                     {'name': 'basicgeo', 'options': {'show': False}},                       # basic geometric features
                     {'name': 'hugeo', 'options': {'show': False}},                          # Hu moments
                     {'name': 'flusser', 'options': {'show': False}},                        # Flusser moments
-                    {'name': 'fourierdes', 'options': {'show': False, 'Nfourierdes': 12}}   # Fourier descriptors
+                    {'name': 'fourierdes', 'options': {'show': False, 'Nfourierdes': 12}},  # Fourier descriptors
                 ]}
 
-                X, Xn = Bfx_geo(Isegmented255, options)
+                Xtmp, Xntmp = Bfx_geo(Isegmented255, options)
+                #print(Xtmp)
+                #print(Xntmp)
+
+                Xstack.extend(Xtmp[0])
+                Xnstack.extend(Xntmp)
+
+                options = {'dharalick': 3}  # 3 pixels distance for coocurrence
+
+                J = I[:, :, 0]  # red channel
+                Xtmp, Xntmp = Bfx_haralick(J, Isegmented255, options)  # Haralick features
+                # print(Xtmp)
+                Xntmp = [name + '_red' for name in Xntmp]
+                # print(Xntmp)
+
+                Xstack.extend(Xtmp[0])
+                Xnstack.extend(Xntmp)
+
+                J = I[:, :, 1]  # green channel
+                Xtmp, Xntmp = Bfx_haralick(J, Isegmented255, options)  # Haralick features
+                #print(Xtmp)
+                Xntmp = [name + '_green' for name in Xntmp]
+                #print(Xntmp)
+
+                Xstack.extend(Xtmp[0])
+                Xnstack.extend(Xntmp)
+
+                J = I[:, :, 2]  # blue channel
+                Xtmp, Xntmp = Bfx_haralick(J, Isegmented255, options)  # Haralick features
+                #print(Xtmp)
+                Xntmp = [name + '_blue' for name in Xntmp]
+                #print(Xntmp)
+
+                Xstack.extend(Xtmp[0])
+                Xnstack.extend(Xntmp)
+
+                a, _ = histogram(rgb2gray(I))
+                a = [element / sum(a) for element in a]
+                Xtmp = [entr(a).sum(axis=0)]
+                #print(Xtmp)
+                Xntmp = ['Entropy']
+                #print(Xntmp)
+
+                Xstack.extend(Xtmp)
+                Xnstack.extend(Xntmp)
+                #print(Xstack)
+                #print(Xnstack)
+
+
+
+                X.append(Xstack)
+                if len(Xn) == 0:
+                    Xn = Xnstack
+
                 print(X)
                 print(Xn)
-
-
 
 
 path = 'imgs'
 pathSegmentation = 'our_segmentation'
 magic(False, False, True)
-
