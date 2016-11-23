@@ -26,7 +26,9 @@ from balu.FeatureExtraction import Bfx_haralick, Bfx_geo, Bfx_basicgeo
 from skimage.exposure import histogram
 from scipy.special import entr
 from scipy.io import savemat, loadmat
+from balu.FeatureSelection import Bfs_clean
 from balu.Classification import Bcl_structure
+from balu.PerformanceEvaluation import Bev_performance, Bev_confusion
 
 def magic(segmentationProcess=True, saveSegmentation=True, featuresProcess=True, trainAndTest=True):
     global path, pathSegmentation, dph2
@@ -417,20 +419,52 @@ def magic(segmentationProcess=True, saveSegmentation=True, featuresProcess=True,
         data = loadmat('X-Xn-d-names.mat')
         X = data['X']
         Xn = data['Xn']
-        d = data['d']
+        d = data['d'][0]
         imagesNames = data['imagesNames']
 
         #print(X)
-        print(len(Xn))
+        #print(len(Xn))
         #print(d)
         #print(imagesNames)
 
         # training
+        print('training')
+        sclean = Bfs_clean(X, 1)
+        Xclean = X[:, sclean]
+        Xnclean = Xn[sclean]
 
+        #print(sclean)
+        #print(Xclean)
+        #print(Xnclean)
 
-        # testing
+        Xtrain = Xclean[: 85]
+        Xntrain = Xnclean[: 85]
+        dtrain = d[: 85]
 
+        b = [
+            {'name': 'lda', 'options': {'p': []}},
+            {'name': 'maha', 'options': {}},
+            {'name': 'qda', 'options': {'p': []}},
+            {'name': 'svm', 'options': {'kernel': 1}},
+            {'name': 'svm', 'options': {'kernel': 2}},
+            #{'name': 'knn', 'options': {'k': 5}},
+            {'name': 'nn', 'options': {'method': 1, 'iter': 15}}
+        ]
+        op = b
+        struct = Bcl_structure(Xtrain, dtrain, op)
 
+        Xtest = Xclean[85:]
+        Xntest = Xnclean[85:]
+        dtest = d[85:]
+
+        #print('testing')
+
+        ds, _ = Bcl_structure(Xtest, struct)
+        for i in range(len(op)):
+            T, p = Bev_confusion(dtest, ds[:, i])
+            print(b[i]['name'])
+            print(p)
+            print(T)
 
 '''
 Clinical Diagnosis:
