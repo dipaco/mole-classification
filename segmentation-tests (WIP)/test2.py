@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 '''
 Requeriments:
 - Python (We use 3.5).
@@ -14,7 +15,6 @@ from skimage.future import graph
 from matplotlib import colors
 from skimage.draw import ellipse
 from skimage.measure import label, compare_mse, compare_ssim, compare_psnr
-from mahotas.features import haralick
 #conda install -c https://conda.anaconda.org/conda-forge mahotas
 from balu.FeatureAnalysis import Bfa_jfisher
 from skimage.filters import gaussian
@@ -30,8 +30,10 @@ from balu.FeatureSelection import Bfs_clean
 from balu.Classification import Bcl_structure
 from balu.PerformanceEvaluation import Bev_performance, Bev_confusion
 
-def magic(segmentationProcess=True, saveSegmentation=True, featuresProcess=True, trainAndTest=True):
-    global path, pathSegmentation, dph2
+def magic(imgPath, imgSegPath, segmentationProcess=True, saveSegmentation=True, featuresProcess=True, trainAndTest=True):
+    path = imgPath
+    pathSegmentation = imgSegPath
+    global dph2
 
     if saveSegmentation:
         counter = 0
@@ -199,6 +201,8 @@ def magic(segmentationProcess=True, saveSegmentation=True, featuresProcess=True,
                 IGaussian = gaussian(IGray, sigma=0.5)
                 thresh = threshold_otsu(IGray)
                 IOtsu = IGray <= thresh
+                IOtsu = np.logical_and(IOtsu, mask)
+                #IOtsu = closing(IOtsu, selem=disk(5))
 
                 #Islic3 = mark_boundaries(IOtsu, L2)
                 #g3 = graph.rag_mean_color(I, L2)
@@ -206,18 +210,21 @@ def magic(segmentationProcess=True, saveSegmentation=True, featuresProcess=True,
                 #imshow(lc2, cmap='gray')
                 #show()
 
-                for i in range(1, L2label.max()):
-                    lbl = (L2label == i)
-                    countc = 0
-                    count = 0
-                    for j in range(len(lbl)):
-                        for k in range(len(lbl[i])):
-                            if not lbl[j][k] == 0:
-                                if IOtsu[j][k]:
-                                    countc += 1
-                                count += 1
-                    if (countc/count) >= 0.4:
+                imshow(IOtsu)
+                show()
+
+                for i in range(0, L2label.max() + 1):
+                    lbl = np.logical_and((L2label == i), mask)
+                    imshow(lbl)
+                    show()
+
+                    #FIXME: El divisor puede dar 0 cuando al lbl le quitamos el fondo
+                    r = (np.sum(np.logical_and(lbl, IOtsu)) / float(np.sum(np.logical_or(lbl, IOtsu))))
+                    print r
+                    if r >= 0.4:
                         s += lbl
+                imshow(s)
+                show()
 
                 sMask = s * mask
                 sMaskClose = closing(sMask, selem=disk(3))
@@ -678,4 +685,9 @@ dph2 = {
 
 path = 'imgs'
 pathSegmentation = 'our_segmentation'
-magic(segmentationProcess=False, saveSegmentation=False, featuresProcess=False, trainAndTest=True)
+magic(imgPath=path,
+      imgSegPath=pathSegmentation,
+      segmentationProcess=True,
+      saveSegmentation=True,
+      featuresProcess=False,
+      trainAndTest=False)
