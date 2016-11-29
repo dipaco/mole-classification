@@ -210,21 +210,23 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, saveSegmentation=True, 
                 #imshow(lc2, cmap='gray')
                 #show()
 
-                imshow(IOtsu)
-                show()
-
+                J = np.zeros(L2label.max() + 1)
                 for i in range(0, L2label.max() + 1):
                     lbl = np.logical_and((L2label == i), mask)
-                    imshow(lbl)
-                    show()
 
                     #FIXME: El divisor puede dar 0 cuando al lbl le quitamos el fondo
-                    r = (np.sum(np.logical_and(lbl, IOtsu)) / float(np.sum(np.logical_or(lbl, IOtsu))))
-                    print r
-                    if r >= 0.4:
-                        s += lbl
-                imshow(s)
-                show()
+                    num = np.sum(np.logical_and(lbl, IOtsu))
+                    den = float(np.sum(np.logical_or(lbl, IOtsu)))
+                    if den == 0.0:
+                        jaccard = 0.0
+                    else:
+                        jaccard = num / den
+
+                    J[i] = jaccard
+
+                s = np.logical_and((L2label == np.argmax(J)), mask)
+                #imshow(s)
+                #show()
 
                 sMask = s * mask
                 sMaskClose = closing(sMask, selem=disk(3))
