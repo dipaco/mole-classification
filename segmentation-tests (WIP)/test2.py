@@ -51,12 +51,8 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, saveSegmentation=True, 
         imagesNames = []
 
     def compare_jona(img1, img2):
-        c = 0
-        for i in range(len(GT)):
-            for j in range(len(GT[i])):
-                if GT[i][j] == Isegmented[i][j]:
-                    c += 1
-        return c / (len(GT) * len(GT[0])), 0.58
+        #FIXME: (Diego) Por qué 0.58? es más para que es este compare_jona?
+        return np.sum(img1 == img2) / float(img1.size), 0.58
 
     def compare_jaccard(img1, img2):
         return np.sum(np.logical_and(img1, img2)) / float(np.sum(np.logical_or(img1, img2)))
@@ -494,7 +490,6 @@ Clinical Diagnosis:
     1 - Atypical Nevus;
     2 - Melanoma.
 '''
-
 dph2 = {
     'IMD003': 0, 'IMD009': 0, 'IMD016': 0, 'IMD022': 0, 'IMD024': 0, 'IMD025': 0, 'IMD035': 0, 'IMD038': 0, 'IMD042': 0,
     'IMD044': 0, 'IMD045': 0, 'IMD050': 0, 'IMD092': 0, 'IMD101': 0, 'IMD103': 0, 'IMD112': 0, 'IMD118': 0, 'IMD125': 0,
