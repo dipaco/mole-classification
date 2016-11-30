@@ -34,6 +34,10 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, saveSegmentation=True, 
     path = imgPath
     pathSegmentation = imgSegPath
     global dph2
+    all_mse = []
+    all_ssim = []
+    all_pnsr = []
+    all_jaccard = []
 
     if saveSegmentation:
         counter = 0
@@ -53,6 +57,9 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, saveSegmentation=True, 
                 if GT[i][j] == Isegmented[i][j]:
                     c += 1
         return c / (len(GT) * len(GT[0])), 0.58
+
+    def compare_jaccard(img1, img2):
+        return np.sum(np.logical_and(img1, img2)) / float(np.sum(np.logical_or(img1, img2)))
 
     def _weight_haralick(graph, src, dst, n):
         """Callback to handle merging nodes by haralick method.
@@ -225,8 +232,8 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, saveSegmentation=True, 
                     J[i] = jaccard
 
                 s = np.logical_and((L2label == np.argmax(J)), mask)
-                #imshow(s)
-                #show()
+                imshow(s)
+                show()
 
                 sMask = s * mask
                 sMaskClose = closing(sMask, selem=disk(3))
@@ -255,6 +262,19 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, saveSegmentation=True, 
                 #subplot(1, 2, 2)
                 #imshow(Isegmented, cmap='gray')
                 #show()
+
+                aux = compare_mse(GT, Isegmented)
+                print('mse    ', image[:-4], aux)
+                all_mse.append(aux)
+                aux = compare_ssim(GT, Isegmented)
+                print('ssim   ', image[:-4], aux)
+                all_ssim.append(aux)
+                aux = compare_psnr(GT, Isegmented)
+                print('pnsr   ', image[:-4], aux)
+                all_pnsr.append(aux)
+                aux = compare_jaccard(GT, Isegmented)
+                print('jaccard', image[:-4], aux)
+                all_jaccard.append(aux)
 
                 if saveSegmentation:
                     imsave(pathSegmentation + '/' + image[:-4] + '_our.png', Isegmented, cmap='gray')
@@ -305,21 +325,6 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, saveSegmentation=True, 
                 Isegmented = Isegmented255 > 120
 
             if featuresProcess:
-                """
-                    - Eliminar cositas constantes
-                    - Feature selection para sacar las mejores
-                """
-
-                #print('mse ', image[:-4], compare_mse(GT, Isegmented))
-                #mean_mse += compare_mse(GT, Isegmented)
-                #print('ssim', image[:-4], compare_ssim(GT, Isegmented))
-                #mean_ssim += compare_ssim(GT, Isegmented)
-                #print('pnsr', image[:-4], compare_psnr(GT, Isegmented))
-                #mean_pnsr += compare_psnr(GT, Isegmented)
-                #print('jona', image[:-4], compare_jona(GT, Isegmented))
-                #mean_jona += compare_jona(GT, Isegmented)
-                #print('')
-
                 jona, mean_jona = compare_jona(GT, Isegmented)
 
                 if (jona >= mean_jona) and (np.sum(Isegmented255) > 0):
@@ -474,6 +479,13 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, saveSegmentation=True, 
             print(b[i]['name'])
             print(p)
             print(T)
+
+    print("{:10} {:20} {:20}".format('Indice', 'Media', 'Desviacion'))
+
+    print("{:10} {:0.20f} {:0.20f}".format('MSE', sum(all_mse) / len(all_mse), np.std(all_mse)))
+    print("{:10} {:0.20f} {:0.20f}".format('SSIM', sum(all_ssim) / len(all_ssim), np.std(all_ssim)))
+    print("{:10} {:0.20f} {:0.20f}".format('PNSR', sum(all_pnsr) / len(all_pnsr), np.std(all_pnsr)))
+    print("{:10} {:0.20f} {:0.20f}".format('JACCARD', sum(all_jaccard) / len(all_jaccard), np.std(all_jaccard)))
 
 '''
 Clinical Diagnosis:
