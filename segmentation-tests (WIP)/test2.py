@@ -160,7 +160,7 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, saveSegmentation=True, 
                 #imshow(I)
                 #show()
 
-                GT = rgb2gray(imread(path + 'GT/' + image[:-4] + '_lesion.bmp').astype(float)) > 120
+                GT = (rgb2gray(imread(path + 'GT/' + image[:-4] + '_lesion.bmp').astype(float)) * mask) > 120
 
                 # n_segments sujeto a cambios para optimización de la segmentación
                 L = slic(I, n_segments=400)
@@ -263,6 +263,7 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, saveSegmentation=True, 
                 #imshow(Isegmented, cmap='gray')
                 #show()
 
+
                 aux = compare_mse(GT, Isegmented)
                 print('mse    ', image[:-4], aux)
                 all_mse.append(aux)
@@ -275,6 +276,7 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, saveSegmentation=True, 
                 aux = compare_jaccard(GT, Isegmented)
                 print('jaccard', image[:-4], aux)
                 all_jaccard.append(aux)
+                print('')
 
                 if saveSegmentation:
                     imsave(pathSegmentation + '/' + image[:-4] + '_our.png', Isegmented, cmap='gray')
@@ -481,7 +483,6 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, saveSegmentation=True, 
             print(T)
 
     print("{:10} {:20} {:20}".format('Indice', 'Media', 'Desviacion'))
-
     print("{:10} {:0.20f} {:0.20f}".format('MSE', sum(all_mse) / len(all_mse), np.std(all_mse)))
     print("{:10} {:0.20f} {:0.20f}".format('SSIM', sum(all_ssim) / len(all_ssim), np.std(all_ssim)))
     print("{:10} {:0.20f} {:0.20f}".format('PNSR', sum(all_pnsr) / len(all_pnsr), np.std(all_pnsr)))
