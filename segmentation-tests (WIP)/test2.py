@@ -232,8 +232,8 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, saveSegmentation=True, 
                     J[i] = jaccard
 
                 s = np.logical_and((L2label == np.argmax(J)), mask)
-                imshow(s)
-                show()
+                #imshow(s)
+                #show()
 
                 sMask = s * mask
                 sMaskClose = closing(sMask, selem=disk(3))
