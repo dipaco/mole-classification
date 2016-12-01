@@ -17,6 +17,7 @@ from skimage.draw import ellipse
 from skimage.measure import label, compare_mse, compare_ssim, compare_psnr
 #conda install -c https://conda.anaconda.org/conda-forge mahotas
 from balu.FeatureAnalysis import Bfa_jfisher
+from balu.DataSelectionAndGeneration import Bds_nostratify
 from skimage.filters import gaussian
 from skimage.morphology import opening, disk, closing
 import os
@@ -30,7 +31,7 @@ from balu.FeatureSelection import Bfs_clean
 from balu.Classification import Bcl_structure
 from balu.PerformanceEvaluation import Bev_performance, Bev_confusion
 
-def magic(imgPath, imgSegPath, segmentationProcess=True, saveSegmentation=True, featuresProcess=True, trainAndTest=True):
+def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, trainAndTest=True):
     path = imgPath
     pathSegmentation = imgSegPath
     global dph2
@@ -38,11 +39,6 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, saveSegmentation=True, 
     all_ssim = []
     all_pnsr = []
     all_jaccard = []
-
-    if saveSegmentation:
-        counter = 0
-        if not os.path.exists(pathSegmentation):
-            os.makedirs(pathSegmentation)
 
     if featuresProcess:
         X = []
@@ -55,7 +51,15 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, saveSegmentation=True, 
         return np.sum(img1 == img2) / float(img1.size), 0.58
 
     def compare_jaccard(img1, img2):
-        return np.sum(np.logical_and(img1, img2)) / float(np.sum(np.logical_or(img1, img2)))
+
+        num = np.sum(np.logical_and(img1, img2))
+        den = float(np.sum(np.logical_or(img1, img2)))
+        if den == 0.0:
+            jaccard = 0.0
+        else:
+            jaccard = num / den
+
+        return jaccard
 
     def _weight_haralick(graph, src, dst, n):
         """Callback to handle merging nodes by haralick method.
@@ -135,46 +139,32 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, saveSegmentation=True, 
         graph.node[dst]['mean color'] = (graph.node[dst]['total color'] /
                                          graph.node[dst]['pixel count'])
 
-    if segmentationProcess or saveSegmentation or featuresProcess:
+    def get_mask(s):
+        mask = np.zeros(s, dtype=np.uint8)
+        rr, cc = ellipse(round(s[0] / 2), round(s[1] / 2), round(s[0] / 2) - 1, round(s[1] / 2) - 1)
+        mask[rr, cc] = 1
+        return mask
+
+    if segmentationProcess or featuresProcess:
+        counter = 0
         for image in fnmatch.filter(os.listdir('imgs'), '*.bmp'):
 
             if segmentationProcess:
                 IOriginal = imread(path + '/' + image)
 
-                mask = np.zeros((IOriginal.shape[0:2]), dtype=np.uint8)
-                rr, cc = ellipse(round(IOriginal.shape[0]/2), round(IOriginal.shape[1]/2), round(IOriginal.shape[0]/2)-1, round(IOriginal.shape[1]/2)-1)
-                mask[rr, cc] = 1
-
+                # Gets the mask to avoid dark areas in segmentation
+                mask = get_mask(IOriginal.shape[0:2])
                 maskrgb = gray2rgb(mask)
-                #imshow(mask)
-                #show()
-
                 #IOriginalGray = rgb2gray(IOriginal)
-
                 I = maskrgb * IOriginal
-
-                #imshow(I)
-                #show()
 
                 GT = (rgb2gray(imread(path + 'GT/' + image[:-4] + '_lesion.bmp').astype(float)) * mask) > 120
 
                 # n_segments sujeto a cambios para optimización de la segmentación
                 L = slic(I, n_segments=400)
-
-                #subplot(1, 2, 1)
                 Islic = mark_boundaries(I, L)
-                #imshow(Islic)
-                #show()
-                #subplot(1, 2, 2)
-                #imshow(mark_boundaries(GT, L, color=(1, 0, 0)))
-                #show()
-
                 g = graph.rag_mean_color(I, L)
-                lc = graph.draw_rag(L, g, Islic)
-
-                #imshow(lc)
-                #show()
-
+                #lc = graph.draw_rag(L, g, Islic)
                 L2 = graph.merge_hierarchical(L, g, thresh=50, rag_copy=False,
                                               in_place_merge=True,
                                               merge_func=merge_mean_color,
@@ -190,18 +180,11 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, saveSegmentation=True, 
                 out = mark_boundaries(out, L2, (0, 0, 0))
                 '''
 
-                #subplot(1, 2, 1)
-                #imshow(GT, cmap='gray')
-
-                #subplot(1, 2, 2)
-                #imshow(lc2)
-                #show()
-
                 s = np.zeros((IOriginal.shape[0:2]), dtype=np.uint8)
                 L2label = label(L2)
 
                 IGray = rgb2gray(IOriginal)# * mask
-                IGaussian = gaussian(IGray, sigma=0.5)
+                #IGaussian = gaussian(IGray, sigma=0.5)
                 thresh = threshold_otsu(IGray)
                 IOtsu = IGray <= thresh
                 IOtsu = np.logical_and(IOtsu, mask)
@@ -216,68 +199,50 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, saveSegmentation=True, 
                 J = np.zeros(L2label.max() + 1)
                 for i in range(0, L2label.max() + 1):
                     lbl = np.logical_and((L2label == i), mask)
-
-                    #FIXME: El divisor puede dar 0 cuando al lbl le quitamos el fondo
-                    num = np.sum(np.logical_and(lbl, IOtsu))
-                    den = float(np.sum(np.logical_or(lbl, IOtsu)))
-                    if den == 0.0:
-                        jaccard = 0.0
-                    else:
-                        jaccard = num / den
-
+                    jaccard = compare_jaccard(IOtsu, lbl)
                     J[i] = jaccard
 
-                s = np.logical_and((L2label == np.argmax(J)), mask)
-                #imshow(s)
-                #show()
+                sMask = np.logical_and((L2label == np.argmax(J)), mask)
 
-                sMask = s * mask
                 sMaskClose = closing(sMask, selem=disk(3))
                 sMaskOpen = opening(sMaskClose, selem=disk(3))  # ??
-
                 slabel = label(sMaskOpen)
 
-                Isegmented = np.zeros((IOriginal.shape[0:2]), dtype=np.uint8)
+                '''FIXME: Creo que esto sobra --------- '''
                 max = 0
                 iMax = 0
                 for i in range(1, slabel.max()):
                     if np.sum(slabel == i) > max:
                         max = np.sum(slabel == i)
                         iMax = i
+                '''--------------------------------'''
+                Isegmented255 = slabel == iMax
 
-                Isegmented = slabel == iMax
+                '''FIXME: no entiendo esto para qué'''
+                if Isegmented255[0][0] and Isegmented255[0][len(Isegmented255[0])-1] and Isegmented255[len(Isegmented255)-1][0] and Isegmented255[len(Isegmented255)-1][len(Isegmented255[0])-1]:
+                    Isegmented255 = np.invert(Isegmented255)
+                '''--------------------------------'''
+                Isegmented255 = binary_fill_holes(Isegmented255)
 
-                if Isegmented[0][0] and Isegmented[0][len(Isegmented[0])-1] and Isegmented[len(Isegmented)-1][0] and Isegmented[len(Isegmented)-1][len(Isegmented[0])-1]:
-                    Isegmented = np.invert(Isegmented)
-
-                Isegmented = binary_fill_holes(Isegmented)
-
-                #subplot(1, 2, 1)
-                #imshow(GT, cmap='gray')
-
-                #subplot(1, 2, 2)
-                #imshow(Isegmented, cmap='gray')
-                #show()
-
-
-                aux = compare_mse(GT, Isegmented)
+                aux = compare_mse(GT, Isegmented255)
                 print('mse    ', image[:-4], aux)
                 all_mse.append(aux)
-                aux = compare_ssim(GT, Isegmented)
+                aux = compare_ssim(GT, Isegmented255)
                 print('ssim   ', image[:-4], aux)
                 all_ssim.append(aux)
-                aux = compare_psnr(GT, Isegmented)
+                aux = compare_psnr(GT, Isegmented255)
                 print('pnsr   ', image[:-4], aux)
                 all_pnsr.append(aux)
-                aux = compare_jaccard(GT, Isegmented)
+                aux = compare_jaccard(GT, Isegmented255)
                 print('jaccard', image[:-4], aux)
                 all_jaccard.append(aux)
                 print('')
 
-                if saveSegmentation:
-                    imsave(pathSegmentation + '/' + image[:-4] + '_our.png', Isegmented, cmap='gray')
-                    counter += 1
-                    print(counter, '/', len(fnmatch.filter(os.listdir('imgs'), '*.bmp')))
+                if not os.path.exists(pathSegmentation):
+                    os.makedirs(pathSegmentation)
+                imsave(pathSegmentation + '/' + image[:-4] + '_our.png', Isegmented255, cmap='gray')
+                counter += 1
+                print(counter, '/', len(fnmatch.filter(os.listdir('imgs'), '*.bmp')))
 
                 '''
                 s = np.ones((IOriginal.shape[0:2]), dtype=np.uint8)
@@ -305,25 +270,18 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, saveSegmentation=True, 
                     imshow(gray2rgb(L2label == i) * I)
                     show()
                 '''
-            if not segmentationProcess:
+            else: #SEGMENTATION IS DONE AND SAVED
                 IOriginal = imread(path + '/' + image)
 
-                mask = np.zeros((IOriginal.shape[0:2]), dtype=np.uint8)
-                rr, cc = ellipse(round(IOriginal.shape[0] / 2), round(IOriginal.shape[1] / 2),
-                                 round(IOriginal.shape[0] / 2) - 1, round(IOriginal.shape[1] / 2) - 1)
-                mask[rr, cc] = 1
-
+                #Gets the mask to avoid dark areas in segmentation
+                mask = get_mask(IOriginal.shape[0:2])
                 maskrgb = gray2rgb(mask)
-
                 I = maskrgb * IOriginal
-
                 GT = (rgb2gray(imread(path + 'GT/' + image[:-4] + '_lesion.bmp').astype(float)) * mask) > 120
-
-                Isegmented255 = rgb2gray(imread(pathSegmentation + '/' + image[:-4] + '_our.png').astype(float))
-                Isegmented = Isegmented255 > 120
+                Isegmented255 = rgb2gray(imread(pathSegmentation + '/' + image[:-4] + '_our.png').astype(float)) > 120
 
             if featuresProcess:
-                jona, mean_jona = compare_jona(GT, Isegmented)
+                jona, mean_jona = compare_jona(GT, Isegmented255)
 
                 if (jona >= mean_jona) and (np.sum(Isegmented255) > 0):
 
@@ -425,13 +383,14 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, saveSegmentation=True, 
             print(Xn)
             print(d)
             print(imagesNames)
+            d = np.array(d)
             savemat('X-Xn-d-names.mat', {'X': X, 'Xn': Xn, 'd': d, 'imagesNames': imagesNames})
 
     if trainAndTest:
         data = loadmat('X-Xn-d-names.mat')
         X = data['X']
         Xn = data['Xn']
-        d = data['d'][0]
+        d = data['d']
         imagesNames = data['imagesNames']
 
         #print(X)
@@ -449,9 +408,13 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, saveSegmentation=True, 
         #print(Xclean)
         #print(Xnclean)
 
-        Xtrain = Xclean[: 85]
-        Xntrain = Xnclean[: 85]
-        dtrain = d[: 85]
+        Xtrain, dtrain, Xtest, dtest = Bds_nostratify(Xclean, d, 0.75)
+
+        print Xtrain.shape, Xtest.shape, dtrain.shape, dtest.shape
+
+        #Xtrain = Xclean[: 85]
+        #Xntrain = Xnclean[: 85]
+        #dtrain = d[: 85]
 
         b = [
             {'name': 'lda', 'options': {'p': []}},
@@ -465,9 +428,9 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, saveSegmentation=True, 
         op = b
         struct = Bcl_structure(Xtrain, dtrain, op)
 
-        Xtest = Xclean[85:]
-        Xntest = Xnclean[85:]
-        dtest = d[85:]
+        #Xtest = Xclean[85:]
+        #Xntest = Xnclean[85:]
+        #dtest = d[85:]
 
         #print('testing')
 
@@ -483,6 +446,7 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, saveSegmentation=True, 
     print("{:10} {:0.20f} {:0.20f}".format('SSIM', sum(all_ssim) / len(all_ssim), np.std(all_ssim)))
     print("{:10} {:0.20f} {:0.20f}".format('PNSR', sum(all_pnsr) / len(all_pnsr), np.std(all_pnsr)))
     print("{:10} {:0.20f} {:0.20f}".format('JACCARD', sum(all_jaccard) / len(all_jaccard), np.std(all_jaccard)))
+
 
 '''
 Clinical Diagnosis:
@@ -520,7 +484,6 @@ path = 'imgs'
 pathSegmentation = 'our_segmentation'
 magic(imgPath=path,
       imgSegPath=pathSegmentation,
-      segmentationProcess=False,
-      saveSegmentation=False,
+      segmentationProcess=True,
       featuresProcess=True,
       trainAndTest=False)
