@@ -278,7 +278,7 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, t
 
                     Xstack = []
                     Xnstack = []
-                    print(image[: -4])
+                    #print(image[: -4])
 
                     options = {'b': [
                         {'name': 'basicgeo', 'options': {'show': False}},                       # basic geometric features
