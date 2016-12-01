@@ -36,8 +36,6 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, t
     pathSegmentation = imgSegPath
     global dph2
     all_mse = []
-    all_ssim = []
-    all_pnsr = []
     all_jaccard = []
 
     if featuresProcess:
@@ -45,10 +43,6 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, t
         Xn = []
         d = []
         imagesNames = []
-
-    def compare_jona(img1, img2):
-        #FIXME: (Diego) Por qué 0.58? es más para que es este compare_jona?
-        return np.sum(img1 == img2) / float(img1.size), 0.58
 
     def compare_jaccard(img1, img2):
 
@@ -146,6 +140,7 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, t
         return mask
 
     if segmentationProcess or featuresProcess:
+        print("{:10} {:20} {:20}".format('Imagen', 'MSE', 'JACCARD'))
         counter = 0
         for image in fnmatch.filter(os.listdir('imgs'), '*.bmp'):
 
@@ -206,43 +201,40 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, t
 
                 sMaskClose = closing(sMask, selem=disk(3))
                 sMaskOpen = opening(sMaskClose, selem=disk(3))  # ??
+
                 slabel = label(sMaskOpen)
 
-                '''FIXME: Creo que esto sobra --------- '''
+                '''FIXME: Solucion temporal --------- '''
                 max = 0
                 iMax = 0
                 for i in range(1, slabel.max()):
                     if np.sum(slabel == i) > max:
                         max = np.sum(slabel == i)
                         iMax = i
-                '''--------------------------------'''
-                Isegmented255 = slabel == iMax
+                '''------------------------------------'''
+
+                Isegmented = slabel == iMax
 
                 '''FIXME: no entiendo esto para qué'''
-                if Isegmented255[0][0] and Isegmented255[0][len(Isegmented255[0])-1] and Isegmented255[len(Isegmented255)-1][0] and Isegmented255[len(Isegmented255)-1][len(Isegmented255[0])-1]:
-                    Isegmented255 = np.invert(Isegmented255)
+                #if Isegmented[0][0] and Isegmented[0][len(Isegmented[0])-1] and Isegmented[len(Isegmented)-1][0] and Isegmented[len(Isegmented)-1][len(Isegmented[0])-1]:
+                #    Isegmented = np.invert(Isegmented)
                 '''--------------------------------'''
-                Isegmented255 = binary_fill_holes(Isegmented255)
+                Isegmented = binary_fill_holes(sMaskOpen)
 
-                aux = compare_mse(GT, Isegmented255)
-                print('mse    ', image[:-4], aux)
-                all_mse.append(aux)
-                aux = compare_ssim(GT, Isegmented255)
-                print('ssim   ', image[:-4], aux)
-                all_ssim.append(aux)
-                aux = compare_psnr(GT, Isegmented255)
-                print('pnsr   ', image[:-4], aux)
-                all_pnsr.append(aux)
-                aux = compare_jaccard(GT, Isegmented255)
-                print('jaccard', image[:-4], aux)
-                all_jaccard.append(aux)
-                print('')
+                auxmse = compare_mse(GT, Isegmented)
+                all_mse.append(auxmse)
+
+                auxjacc = compare_jaccard(GT, Isegmented)
+                all_jaccard.append(auxjacc)
+
+                print("{:10} {:0.25f} {:0.25f}".format(image[:-4], auxmse, auxjacc))
+
 
                 if not os.path.exists(pathSegmentation):
                     os.makedirs(pathSegmentation)
-                imsave(pathSegmentation + '/' + image[:-4] + '_our.png', Isegmented255, cmap='gray')
+                imsave(pathSegmentation + '/' + image[:-4] + '_our.png', Isegmented, cmap='gray')
                 counter += 1
-                print(counter, '/', len(fnmatch.filter(os.listdir('imgs'), '*.bmp')))
+                #print(counter, '/', len(fnmatch.filter(os.listdir('imgs'), '*.bmp')))
 
                 '''
                 s = np.ones((IOriginal.shape[0:2]), dtype=np.uint8)
@@ -278,12 +270,11 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, t
                 maskrgb = gray2rgb(mask)
                 I = maskrgb * IOriginal
                 GT = (rgb2gray(imread(path + 'GT/' + image[:-4] + '_lesion.bmp').astype(float)) * mask) > 120
-                Isegmented255 = rgb2gray(imread(pathSegmentation + '/' + image[:-4] + '_our.png').astype(float)) > 120
+                Isegmented = rgb2gray(imread(pathSegmentation + '/' + image[:-4] + '_our.png').astype(float)) > 120
 
             if featuresProcess:
-                jona, mean_jona = compare_jona(GT, Isegmented255)
 
-                if (jona >= mean_jona) and (np.sum(Isegmented255) > 0):
+                if (np.sum(Isegmented) > 0):
 
                     Xstack = []
                     Xnstack = []
@@ -296,7 +287,7 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, t
                         {'name': 'fourierdes', 'options': {'show': False, 'Nfourierdes': 12}},  # Fourier descriptors
                     ]}
 
-                    Xtmp, Xntmp = Bfx_geo(Isegmented255, options)
+                    Xtmp, Xntmp = Bfx_geo(Isegmented, options)
                     #print(Xtmp)
                     #print(Xntmp)
 
@@ -306,7 +297,7 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, t
                     options = {'dharalick': 3}  # 3 pixels distance for coocurrence
 
                     J = I[:, :, 0]  # red channel
-                    Xtmp, Xntmp = Bfx_haralick(J, Isegmented255, options)  # Haralick features
+                    Xtmp, Xntmp = Bfx_haralick(J, Isegmented, options)  # Haralick features
                     # print(Xtmp)
                     Xntmp = [name + '_red' for name in Xntmp]
                     # print(Xntmp)
@@ -315,7 +306,7 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, t
                     Xnstack.extend(Xntmp)
 
                     J = I[:, :, 1]  # green channel
-                    Xtmp, Xntmp = Bfx_haralick(J, Isegmented255, options)  # Haralick features
+                    Xtmp, Xntmp = Bfx_haralick(J, Isegmented, options)  # Haralick features
                     #print(Xtmp)
                     Xntmp = [name + '_green' for name in Xntmp]
                     #print(Xntmp)
@@ -324,7 +315,7 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, t
                     Xnstack.extend(Xntmp)
 
                     J = I[:, :, 2]  # blue channel
-                    Xtmp, Xntmp = Bfx_haralick(J, Isegmented255, options)  # Haralick features
+                    Xtmp, Xntmp = Bfx_haralick(J, Isegmented, options)  # Haralick features
                     #print(Xtmp)
                     Xntmp = [name + '_blue' for name in Xntmp]
                     #print(Xntmp)
@@ -390,7 +381,7 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, t
         data = loadmat('X-Xn-d-names.mat')
         X = data['X']
         Xn = data['Xn']
-        d = data['d']
+        d = data['d'][0]
         imagesNames = data['imagesNames']
 
         #print(X)
@@ -410,7 +401,7 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, t
 
         Xtrain, dtrain, Xtest, dtest = Bds_nostratify(Xclean, d, 0.75)
 
-        print Xtrain.shape, Xtest.shape, dtrain.shape, dtest.shape
+        print(Xtrain.shape, Xtest.shape, dtrain.shape, dtest.shape)
 
         #Xtrain = Xclean[: 85]
         #Xntrain = Xnclean[: 85]
