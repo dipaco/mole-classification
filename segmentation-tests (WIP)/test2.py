@@ -434,8 +434,6 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, t
 
     print("{:10} {:20} {:20}".format('Indice', 'Media', 'Desviacion'))
     print("{:10} {:0.20f} {:0.20f}".format('MSE', sum(all_mse) / len(all_mse), np.std(all_mse)))
-    print("{:10} {:0.20f} {:0.20f}".format('SSIM', sum(all_ssim) / len(all_ssim), np.std(all_ssim)))
-    print("{:10} {:0.20f} {:0.20f}".format('PNSR', sum(all_pnsr) / len(all_pnsr), np.std(all_pnsr)))
     print("{:10} {:0.20f} {:0.20f}".format('JACCARD', sum(all_jaccard) / len(all_jaccard), np.std(all_jaccard)))
 
 
