@@ -11,11 +11,10 @@ from skimage.color import rgb2gray, label2rgb, gray2rgb
 from skimage.filters import threshold_otsu
 from skimage.segmentation import slic, mark_boundaries
 from matplotlib.pyplot import show, imshow, subplot, figure, title, imsave, suptitle
-from skimage.future import graph
+from future import graph
 from matplotlib import colors
 from skimage.draw import ellipse
-from skimage.measure import label, compare_mse, compare_ssim, compare_psnr
-#conda install -c https://conda.anaconda.org/conda-forge mahotas
+from skimage.measure import label, compare_mse
 from balu.FeatureAnalysis import Bfa_jfisher
 from balu.DataSelectionAndGeneration import Bds_nostratify
 from skimage.filters import gaussian
@@ -31,7 +30,17 @@ from balu.FeatureSelection import Bfs_clean
 from balu.Classification import Bcl_structure
 from balu.PerformanceEvaluation import Bev_performance, Bev_confusion
 
-def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, trainAndTest=True):
+def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, featuresProcess=True, trainAndTest=True):
+    """
+    :param imgPath:
+    :param imgSegPath:
+    :param method: color | entropy | haralick
+    :param segmentationProcess:
+    :param featuresProcess:
+    :param trainAndTest:
+    :return:
+    """
+
     path = imgPath
     pathSegmentation = imgSegPath
     global dph2
@@ -54,6 +63,63 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, t
             jaccard = num / den
 
         return jaccard
+
+    def entropy_rag(graph, labels, image):
+        return graph
+        '''
+        ##############################################################################################################
+        def _define_mean_color_rag(graph, labels, image, extra_arguments=[],
+                           extra_keywords={'sigma':255.0, 'mode':'distance'}):
+        """Callback to handle describing nodes.
+        Nodes can have arbitrary Python objects assigned as attributes. This
+        method expects a valid graph and computes the mean color of the node.
+        Parameters
+        ----------
+        graph : RAG
+            The graph under consideration.
+        labels : ndarray, shape(M, N, [..., P,])
+            The labelled image. This should have one dimension less than
+            `image`. If `image` has dimensions `(M, N, 3)` `labels` should have
+            dimensions `(M, N)`.
+        image : ndarray, shape(M, N, [..., P,] 3)
+            Input image.
+        extra_arguments : sequence, optional
+            Allows extra positional arguments passed.
+        extra_keywords : dictionary, optional
+            Allows extra keyword arguments passed.
+        """
+        # Describe the nodes
+        for n in graph:
+            graph.node[n].update({'labels': [n],
+                                'pixel count': 0,
+                                'total color': np.array([0, 0, 0],
+                                                        dtype=np.double)})
+
+        for index in np.ndindex(labels.shape):
+            current = labels[index]
+            graph.node[current]['pixel count'] += 1
+            graph.node[current]['total color'] += image[index]
+
+        for n in graph:
+            graph.node[n]['mean color'] = (graph.node[n]['total color'] /
+                                        graph.node[n]['pixel count'])
+
+
+        for x, y, d in graph.edges_iter(data=True):
+            diff = graph.node[x]['mean color'] - graph.node[y]['mean color']
+            diff = np.linalg.norm(diff)
+            if mode == 'similarity':
+                d['weight'] = math.e ** (-(diff ** 2) / sigma)
+            elif mode == 'distance':
+                d['weight'] = diff
+            else:
+                raise ValueError("The mode '%s' is not recognised" % mode)
+        '''
+#######################################################################################################################################
+
+    def haralick_rag(graph, labels, image):
+        return graph
+
 
     def _weight_haralick(graph, src, dst, n):
         """Callback to handle merging nodes by haralick method.
@@ -158,15 +224,41 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, t
                 # n_segments sujeto a cambios para optimización de la segmentación
                 L = slic(I, n_segments=400)
                 Islic = mark_boundaries(I, L)
-                g = graph.rag_mean_color(I, L)
-                #lc = graph.draw_rag(L, g, Islic)
-                L2 = graph.merge_hierarchical(L, g, thresh=50, rag_copy=False,
-                                              in_place_merge=True,
-                                              merge_func=merge_mean_color,
-                                              weight_func=_weight_mean_color)
+
+                if method == 'color':
+                    g = graph.rag_mean_color(I, L)
+
+                    #lc = graph.draw_rag(L, g, Islic)
+
+                    L2 = graph.merge_hierarchical(L, g, thresh=50, rag_copy=False,
+                                                  in_place_merge=True,
+                                                  merge_func=merge_mean_color,
+                                                  weight_func=_weight_mean_color)
+
+                    ####################################################################################################
+                elif method == 'entropy':
+
+                    g = graph.region_adjacency_graph(L, image=I, describe_func=entropy_rag)
+
+                    # lc = graph.draw_rag(L, g, Islic)
+
+                    L2 = graph.merge_hierarchical(L, g, thresh=50, rag_copy=False,
+                                                  in_place_merge=True,
+                                                  merge_func=merge_mean_color,
+                                                  weight_func=_weight_mean_color)
+                    ####################################################################################################
+                elif method == 'haralick':
+                    g = graph.haralick_rag(I, L)
+
+                    # lc = graph.draw_rag(L, g, Islic)
+
+                    L2 = graph.merge_hierarchical(L, g, thresh=50, rag_copy=False,
+                                                  in_place_merge=True,
+                                                  merge_func=merge_mean_color,
+                                                  weight_func=_weight_mean_color)
 
                 Islic2 = mark_boundaries(I, L2)
-                #figure()
+
                 g2 = graph.rag_mean_color(I, L2)
                 lc2 = graph.draw_rag(L2, g2, Islic2)
 
@@ -434,8 +526,6 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, t
 
     print("{:10} {:20} {:20}".format('Indice', 'Media', 'Desviacion'))
     print("{:10} {:0.20f} {:0.20f}".format('MSE', sum(all_mse) / len(all_mse), np.std(all_mse)))
-    print("{:10} {:0.20f} {:0.20f}".format('SSIM', sum(all_ssim) / len(all_ssim), np.std(all_ssim)))
-    print("{:10} {:0.20f} {:0.20f}".format('PNSR', sum(all_pnsr) / len(all_pnsr), np.std(all_pnsr)))
     print("{:10} {:0.20f} {:0.20f}".format('JACCARD', sum(all_jaccard) / len(all_jaccard), np.std(all_jaccard)))
 
 
@@ -475,6 +565,7 @@ path = 'imgs'
 pathSegmentation = 'our_segmentation'
 magic(imgPath=path,
       imgSegPath=pathSegmentation,
+      method='color',
       segmentationProcess=True,
       featuresProcess=True,
       trainAndTest=False)
