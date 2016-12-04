@@ -5,7 +5,7 @@ except ImportError:
     warnings.warn('RAGs require networkx')
 import numpy as np
 from scipy import sparse
-from . import _ncut_cy
+from skimage.future.graph import _ncut_cy
 
 
 def DW_matrices(graph):
