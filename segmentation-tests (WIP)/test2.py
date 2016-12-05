@@ -10,6 +10,7 @@ from matplotlib.image import imread
 from skimage.color import rgb2gray, label2rgb, gray2rgb
 from skimage.filters import threshold_otsu
 from skimage.segmentation import slic, mark_boundaries
+from skimage.measure import regionprops
 from matplotlib.pyplot import show, imshow, subplot, figure, title, imsave, suptitle
 from future import graph
 from matplotlib import colors
@@ -82,6 +83,8 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
                      extra_arguments=[],
                      extra_keywords={}):
 
+        all_rp = regionprops(labels + 1)
+        Gray = rgb2gray(image.astype(float))
         for n in graph:
             Xhstack = []
             options = {'dharalick': 3}
@@ -103,8 +106,12 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
             Xhstack.extend(Xhtmp[0])
 
             '''
-
-            Xhtmp, _ = Bfx_haralick(rgb2gray(image), labels == n, options)
+            R = labels == n
+            bbox = all_rp[0]['bbox']
+            Xhtmp, _ = Bfx_haralick(
+                Gray[bbox[0]:bbox[2]+1, bbox[1]:bbox[3]+1],
+                R[bbox[0]:bbox[2]+1, bbox[1]:bbox[3]+1],
+                options)
             Xhstack.extend(Xhtmp[0])
 
             graph.node[n].update({'labels': [n],
@@ -123,7 +130,14 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
             Xh.append(nodey)
             dh.extend([1])
 
-            d['weight'] = Bfa_jfisher(np.asarray(Xh), np.asarray(dh))
+            #TODO: Cambiar esto por la distancia euclideana
+            #TODO: No utilizar listas sino siempre arrays de numpy
+            #x[numpy.isneginf(x)] = 0
+            Xh = np.asarray(Xh)
+            print Xh[0, :].T - Xh[1, :].T
+            d['weight'] = np.linalg.norm(Xh[0, :].T - Xh[1, :].T)
+            #d['weight'] = Bfa_jfisher(np.asarray(Xh), np.asarray(dh))
+            #print d['weight']
 
     def merge_haralick(graph, src, dst, image, labels):
         options = {'dharalick': 3}
@@ -284,29 +298,24 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
 
                 slabel = label(sMaskOpen)
 
-                '''FIXME: Solucion temporal --------- '''
+
+                #Calculates the area of each label to select the one with the
+                #máximum área
                 max = 0
                 iMax = 0
                 for i in range(1, slabel.max()):
                     if np.sum(slabel == i) > max:
                         max = np.sum(slabel == i)
                         iMax = i
-                '''------------------------------------'''
 
                 Isegmented = slabel == iMax
-
-                '''FIXME: no entiendo esto para qué'''
-                #if Isegmented[0][0] and Isegmented[0][len(Isegmented[0])-1] and Isegmented[len(Isegmented)-1][0] and Isegmented[len(Isegmented)-1][len(Isegmented[0])-1]:
-                #    Isegmented = np.invert(Isegmented)
-                '''--------------------------------'''
-                Isegmented = binary_fill_holes(sMaskOpen)
+                Isegmented = binary_fill_holes(Isegmented)
 
                 imshow(Isegmented)
                 show()
 
                 auxmse = compare_mse(GT, Isegmented)
                 all_mse.append(auxmse)
-
                 auxjacc = compare_jaccard(GT, Isegmented)
                 all_jaccard.append(auxjacc)
 
@@ -317,7 +326,7 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
                     os.makedirs(pathSegmentation)
                 imsave(pathSegmentation + '/' + image[:-4] + '_our.png', Isegmented, cmap='gray')
                 counter += 1
-                #print(counter, '/', len(fnmatch.filter(os.listdir('imgs'), '*.bmp')))
+                print(counter, '/', len(fnmatch.filter(os.listdir('imgs'), '*.bmp')))
 
                 '''
                 s = np.ones((IOriginal.shape[0:2]), dtype=np.uint8)
@@ -442,6 +451,9 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
 
 
                     X.append(Xstack)
+                    print X
+                    imshow()
+                    show()
                     if len(Xn) == 0:
                         Xn = Xnstack
                     d.extend([dph2[image[:-4]]])
