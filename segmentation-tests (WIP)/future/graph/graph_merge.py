@@ -57,7 +57,7 @@ def _invalidate_edge(graph, n1, n2):
 
 
 def merge_hierarchical(labels, rag, thresh, rag_copy, in_place_merge,
-                       merge_func, weight_func, merge_trace = False):
+                       merge_func, weight_func, merge_trace = False, image=None):
     """Perform hierarchical merging of a RAG.
 
     Greedily merges the most similar pair of nodes until no edges lower than
@@ -131,7 +131,7 @@ def merge_hierarchical(labels, rag, thresh, rag_copy, in_place_merge,
             else:
                 src, dst = n1, n2
 
-            merge_func(rag, src, dst)
+            merge_func(rag, src, dst, image, labels)
             new_id = rag.merge_nodes(src, dst, weight_func)
             _revalidate_node_edges(rag, new_id, edge_heap)
 
