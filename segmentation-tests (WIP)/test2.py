@@ -11,6 +11,7 @@ from skimage.color import rgb2gray, label2rgb, gray2rgb
 from skimage.filters import threshold_otsu
 from skimage.segmentation import slic, mark_boundaries
 from matplotlib.pyplot import show, imshow, subplot, figure, title, imsave, suptitle
+import matplotlib.pyplot as plt
 from skimage.future import graph
 from matplotlib import colors
 from skimage.draw import ellipse
@@ -31,7 +32,7 @@ from balu.FeatureSelection import Bfs_clean
 from balu.Classification import Bcl_structure
 from balu.PerformanceEvaluation import Bev_performance, Bev_confusion
 
-def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, trainAndTest=True):
+def magic(imgPath, imgSegPath, figPath, segmentationProcess=True, featuresProcess=True, trainAndTest=True):
     path = imgPath
     pathSegmentation = imgSegPath
     global dph2
@@ -236,6 +237,7 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, t
                 counter += 1
                 #print(counter, '/', len(fnmatch.filter(os.listdir('imgs'), '*.bmp')))
 
+            
                 '''
                 s = np.ones((IOriginal.shape[0:2]), dtype=np.uint8)
                 L2label = label(L2)
@@ -271,6 +273,23 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, t
                 I = maskrgb * IOriginal
                 GT = (rgb2gray(imread(path + 'GT/' + image[:-4] + '_lesion.bmp').astype(float)) * mask) > 120
                 Isegmented = rgb2gray(imread(pathSegmentation + '/' + image[:-4] + '_our.png').astype(float)) > 120
+
+            #prueba subplot
+            if not os.path.exists(pathFigures):
+                fig = plt.figure()
+                ax1 = fig.add_subplot(221)
+                ax1.imshow(IOriginal)
+                ax2 = fig.add_subplot(222)
+                ax2.imshow(Islic2)
+                ax3 = fig.add_subplot(223)
+                ax3.imshow(Isegmented)
+                ax4 = fig.add_subplot(224)
+                ax4.imshow(GT)
+                plt.tight_layout()
+                os.makedirs(pathFigures)
+            fig.savefig(pathFigures + '/' + image[:-4] + '_fig.svg', transparent=True, bbox_inches='tight', pad_inches=0)
+                
+
 
             if featuresProcess:
 
@@ -432,6 +451,8 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, t
             print(p)
             print(T)
 
+        fig = plt.figure()
+
     print("{:10} {:20} {:20}".format('Indice', 'Media', 'Desviacion'))
     print("{:10} {:0.20f} {:0.20f}".format('MSE', sum(all_mse) / len(all_mse), np.std(all_mse)))
     print("{:10} {:0.20f} {:0.20f}".format('JACCARD', sum(all_jaccard) / len(all_jaccard), np.std(all_jaccard)))
@@ -471,8 +492,10 @@ dph2 = {
 
 path = 'imgs'
 pathSegmentation = 'our_segmentation'
+pathFigures = 'figs'
 magic(imgPath=path,
       imgSegPath=pathSegmentation,
+      figPath=pathFigures,
       segmentationProcess=True,
       featuresProcess=True,
       trainAndTest=False)
