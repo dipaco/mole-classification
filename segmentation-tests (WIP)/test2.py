@@ -64,8 +64,17 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
 
         return jaccard
 
+#######################################################################################################################################
+
     def entropy_rag(graph, labels, image):
         return graph
+
+    def merge_entropy(graph, src, dst, image, labels):
+        return 0
+
+
+    def _weight_entropy(graph, src, dst, n):
+        return 0
 
 #######################################################################################################################################
 
