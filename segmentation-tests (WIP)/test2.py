@@ -237,7 +237,7 @@ def magic(imgPath, imgSegPath, figPath, segmentationProcess=True, featuresProces
                 counter += 1
                 #print(counter, '/', len(fnmatch.filter(os.listdir('imgs'), '*.bmp')))
 
-            
+
                 '''
                 s = np.ones((IOriginal.shape[0:2]), dtype=np.uint8)
                 L2label = label(L2)
@@ -276,19 +276,21 @@ def magic(imgPath, imgSegPath, figPath, segmentationProcess=True, featuresProces
 
             #prueba subplot
             if not os.path.exists(pathFigures):
-                fig = plt.figure()
-                ax1 = fig.add_subplot(221)
-                ax1.imshow(IOriginal)
-                ax2 = fig.add_subplot(222)
-                ax2.imshow(Islic2)
-                ax3 = fig.add_subplot(223)
-                ax3.imshow(Isegmented)
-                ax4 = fig.add_subplot(224)
-                ax4.imshow(GT)
-                plt.tight_layout()
                 os.makedirs(pathFigures)
+
+            fig = plt.figure()
+            ax1 = fig.add_subplot(221)
+            ax1.imshow(IOriginal)
+            ax2 = fig.add_subplot(222)
+            ax2.imshow(Islic2)
+            ax3 = fig.add_subplot(223)
+            ax3.imshow(Isegmented)
+            ax4 = fig.add_subplot(224)
+            ax4.imshow(GT)
+            plt.tight_layout()
+
             fig.savefig(pathFigures + '/' + image[:-4] + '_fig.svg', transparent=True, bbox_inches='tight', pad_inches=0)
-                
+
 
 
             if featuresProcess:
