@@ -5,6 +5,8 @@ from skimage.draw import ellipse
 import fnmatch
 import os
 
+#testing purpose only
+
 path = 'imgs'
 
 for image in fnmatch.filter(os.listdir('imgs'), '*.bmp'):
@@ -15,7 +17,10 @@ for image in fnmatch.filter(os.listdir('imgs'), '*.bmp'):
         mask = np.zeros(s, dtype=np.uint8)
         rr, cc = ellipse((s[0] / 2), (s[1] / 2), (s[0] / 2) -1 , (s[1] / 2) -1 )
         mask[rr, cc] = 1
+        plt.subplot(121)
         plt.imshow(mask)
+        plt.subplot(122)
+        plt.imshow(IOriginal)
         plt.show()
         return mask
 
