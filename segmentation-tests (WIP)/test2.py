@@ -11,7 +11,7 @@ from skimage.color import rgb2gray, label2rgb, gray2rgb
 from skimage.filters import threshold_otsu
 from skimage.segmentation import slic, mark_boundaries
 from skimage.measure import regionprops
-from matplotlib.pyplot import show, imshow, subplot, figure, title, imsave, suptitle
+from matplotlib.pyplot import show, imshow, subplot, figure, title, imsave, suptitle, colorbar
 from future import graph
 from matplotlib import colors
 from skimage.draw import ellipse
@@ -26,11 +26,14 @@ from scipy.ndimage.morphology import binary_fill_holes
 from balu.FeatureExtraction import Bfx_haralick, Bfx_geo, Bfx_basicgeo
 from skimage.exposure import histogram
 from scipy.special import entr
-from scipy.stats import entropy
 from scipy.io import savemat, loadmat
 from balu.FeatureSelection import Bfs_clean
 from balu.Classification import Bcl_structure
 from balu.PerformanceEvaluation import Bev_performance, Bev_confusion
+
+#Segmentation
+from segmentation import entropy_rag, _weight_entropy, merge_entropy
+
 
 def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, featuresProcess=True, trainAndTest=True):
     """
@@ -66,60 +69,6 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
 
         return jaccard
 
-    def mi(pixelsA, pixelsB, HA, HB):
-        if sum(pixelsA + pixelsB) == 0:
-            HAB = 0
-        else:
-            HAB = entropy(pixelsA + pixelsB)
-        if np.isinf(HAB) or np.isneginf(HAB):
-            ent = np.float64(0.0)
-        a = len(pixelsA)
-        b = len(pixelsB)
-        ab = a + b
-        a = a / ab
-        b = b / ab
-        ans = HAB - (a * HA + b * HB)
-        if np.isinf(ans) or np.isneginf(ans):
-            return np.float64(0.0)
-        return ans
-
-    def entropy_rag(graph, labels, image,
-                     extra_arguments=[],
-                     extra_keywords={}):
-        Gray = rgb2gray(image)
-
-        for n in graph:
-            R = labels == n
-            ii, jj = np.where(R)
-            pixels = [Gray[ii[i], jj[i]] for i in range(len(ii))]
-            if sum(pixels) == 0:
-                ent = np.float64(0.0)
-            else:
-                ent = entropy(pixels)
-            if np.isinf(ent) or np.isneginf(ent):
-                ent = np.float64(0.0)
-            graph.node[n].update({'labels': [n],
-                                  'pixels': pixels,
-                                  'entropy': ent})
-
-        for x, y, d in graph.edges_iter(data=True):
-            d['weight'] = mi(graph.node[x]['pixels'],
-                             graph.node[y]['pixels'],
-                             graph.node[x]['entropy'],
-                             graph.node[y]['entropy'])
-
-    def merge_entropy(graph, src, dst, image, labels):
-        graph.node[dst]['pixels'] += graph.node[src]['pixels']
-        if sum(graph.node[dst]['pixels']) == 0:
-            graph.node[dst]['entropy'] = 0
-        else:
-            graph.node[dst]['entropy'] = entropy(graph.node[dst]['pixels'])
-
-    def _weight_entropy(graph, src, dst, n):
-        return mi(graph.node[dst]['pixels'],
-                  graph.node[n]['pixels'],
-                  graph.node[dst]['entropy'],
-                  graph.node[n]['entropy'])
 
     def haralick_rag(graph, labels, image,
                      extra_arguments=[],
@@ -249,6 +198,8 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
         print("{:10} {:20} {:20}".format('Imagen', 'MSE', 'JACCARD'))
         counter = 0
         for image in fnmatch.filter(os.listdir('imgs'), '*.bmp'):
+            if counter == 3:
+                break
 
             if segmentationProcess:
                 IOriginal = imread(path + '/' + image)
@@ -262,7 +213,7 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
                 GT = (rgb2gray(imread(path + 'GT/' + image[:-4] + '_lesion.bmp').astype(float)) * mask) > 120
 
                 # n_segments sujeto a cambios para optimización de la segmentación
-                L = slic(I, n_segments=400)
+                L = slic(I, n_segments=200)
                 Islic = mark_boundaries(I, L)
 
                 if method == 'color':
@@ -277,12 +228,10 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
 
                     ####################################################################################################
                 elif method == 'entropy':
-
                     g = graph.region_adjacency_graph(L, image=I, describe_func=entropy_rag)
 
                     # lc = graph.draw_rag(L, g, Islic)
-
-                    L2 = graph.merge_hierarchical(L, g, thresh=0.1, rag_copy=False,
+                    L2 = graph.merge_hierarchical(L, g, thresh=0.3, rag_copy=False,
                                                   in_place_merge=True,
                                                   merge_func=merge_entropy,
                                                   weight_func=_weight_entropy,
@@ -326,25 +275,24 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
                 #imshow(lc2, cmap='gray')
                 #show()
 
+                #imshow(L2label)
+                #show()
                 J = np.zeros(L2label.max() + 1)
                 for i in range(0, L2label.max() + 1):
                     lbl = np.logical_and((L2label == i), mask)
+                    lbl = binary_fill_holes(lbl)
                     jaccard = compare_jaccard(IOtsu, lbl)
                     J[i] = jaccard
 
                 sMask = np.logical_and((L2label == np.argmax(J)), mask)
-
-                sMaskClose = closing(sMask, selem=disk(3))
-                sMaskOpen = opening(sMaskClose, selem=disk(3))  # ??
-
-                slabel = label(sMaskOpen)
-
+                sMask = closing(sMask, selem=disk(3))
+                slabel = label(sMask)
 
                 #Calculates the area of each label to select the one with the
                 #máximum área
                 max = 0
-                iMax = 0
-                for i in range(1, slabel.max()):
+                iMax = -1
+                for i in range(1, slabel.max() + 1):
                     if np.sum(slabel == i) > max:
                         max = np.sum(slabel == i)
                         iMax = i
@@ -352,8 +300,8 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
                 Isegmented = slabel == iMax
                 Isegmented = binary_fill_holes(Isegmented)
 
-                imshow(Isegmented)
-                show()
+                #imshow(Isegmented)
+                #show()
 
                 auxmse = compare_mse(GT, Isegmented)
                 all_mse.append(auxmse)
@@ -362,12 +310,11 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
 
                 print("{:10} {:0.25f} {:0.25f}".format(image[:-4], auxmse, auxjacc))
 
-
                 if not os.path.exists(pathSegmentation):
                     os.makedirs(pathSegmentation)
                 imsave(pathSegmentation + '/' + image[:-4] + '_our.png', Isegmented, cmap='gray')
                 counter += 1
-                print(counter, '/', len(fnmatch.filter(os.listdir('imgs'), '*.bmp')))
+                print('{0} / {1}'.format(counter, len(fnmatch.filter(os.listdir('imgs'), '*.bmp'))))
 
                 '''
                 s = np.ones((IOriginal.shape[0:2]), dtype=np.uint8)
@@ -510,6 +457,11 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
             d = np.array(d)
             savemat('X-Xn-d-names.mat', {'X': X, 'Xn': Xn, 'd': d, 'imagesNames': imagesNames})
 
+        if segmentationProcess:
+            print("{:10} {:20} {:20}".format('Indice', 'Media', 'Desviacion'))
+            print("{:10} {:0.20f} {:0.20f}".format('MSE', sum(all_mse) / len(all_mse), np.std(all_mse)))
+            print("{:10} {:0.20f} {:0.20f}".format('JACCARD', sum(all_jaccard) / len(all_jaccard), np.std(all_jaccard)))
+
     if trainAndTest:
         data = loadmat('X-Xn-d-names.mat')
         X = data['X']
@@ -564,12 +516,6 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
             #print(b[i]['name'])
             #print(p)
             #print(T)
-
-    print("{:10} {:20} {:20}".format('Indice', 'Media', 'Desviacion'))
-    print("{:10} {:0.20f} {:0.20f}".format('MSE', sum(all_mse) / len(all_mse), np.std(all_mse)))
-    print("{:10} {:0.20f} {:0.20f}".format('JACCARD', sum(all_jaccard) / len(all_jaccard), np.std(all_jaccard)))
-
-
 '''
 Clinical Diagnosis:
     0 - Common Nevus;
@@ -609,4 +555,4 @@ magic(imgPath=path,
       method='entropy',
       segmentationProcess=True,
       featuresProcess=True,
-      trainAndTest=False)
+      trainAndTest=True)
