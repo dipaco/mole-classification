@@ -10,12 +10,12 @@ from matplotlib.image import imread
 from skimage.color import rgb2gray, label2rgb, gray2rgb
 from skimage.filters import threshold_otsu
 from skimage.segmentation import slic, mark_boundaries
+from skimage.measure import regionprops
 from matplotlib.pyplot import show, imshow, subplot, figure, title, imsave, suptitle
-from skimage.future import graph
+from future import graph
 from matplotlib import colors
 from skimage.draw import ellipse
-from skimage.measure import label, compare_mse, compare_ssim, compare_psnr
-#conda install -c https://conda.anaconda.org/conda-forge mahotas
+from skimage.measure import label, compare_mse
 from balu.FeatureAnalysis import Bfa_jfisher
 from balu.DataSelectionAndGeneration import Bds_nostratify
 from skimage.filters import gaussian
@@ -26,12 +26,23 @@ from scipy.ndimage.morphology import binary_fill_holes
 from balu.FeatureExtraction import Bfx_haralick, Bfx_geo, Bfx_basicgeo
 from skimage.exposure import histogram
 from scipy.special import entr
+from scipy.stats import entropy
 from scipy.io import savemat, loadmat
 from balu.FeatureSelection import Bfs_clean
 from balu.Classification import Bcl_structure
 from balu.PerformanceEvaluation import Bev_performance, Bev_confusion
 
-def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, trainAndTest=True):
+def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, featuresProcess=True, trainAndTest=True):
+    """
+    :param imgPath:
+    :param imgSegPath:
+    :param method: color | entropy | haralick
+    :param segmentationProcess:
+    :param featuresProcess:
+    :param trainAndTest:
+    :return:
+    """
+
     path = imgPath
     pathSegmentation = imgSegPath
     global dph2
@@ -55,45 +66,140 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, t
 
         return jaccard
 
+    def mi(pixelsA, pixelsB, HA, HB):
+        if sum(pixelsA + pixelsB) == 0:
+            HAB = 0
+        else:
+            HAB = entropy(pixelsA + pixelsB)
+        if np.isinf(HAB) or np.isneginf(HAB):
+            ent = np.float64(0.0)
+        a = len(pixelsA)
+        b = len(pixelsB)
+        ab = a + b
+        a = a / ab
+        b = b / ab
+        ans = HAB - (a * HA + b * HB)
+        if np.isinf(ans) or np.isneginf(ans):
+            return np.float64(0.0)
+        return ans
+
+    def entropy_rag(graph, labels, image,
+                     extra_arguments=[],
+                     extra_keywords={}):
+        Gray = rgb2gray(image)
+
+        for n in graph:
+            R = labels == n
+            ii, jj = np.where(R)
+            pixels = [Gray[ii[i], jj[i]] for i in range(len(ii))]
+            if sum(pixels) == 0:
+                ent = np.float64(0.0)
+            else:
+                ent = entropy(pixels)
+            if np.isinf(ent) or np.isneginf(ent):
+                ent = np.float64(0.0)
+            graph.node[n].update({'labels': [n],
+                                  'pixels': pixels,
+                                  'entropy': ent})
+
+        for x, y, d in graph.edges_iter(data=True):
+            d['weight'] = mi(graph.node[x]['pixels'],
+                             graph.node[y]['pixels'],
+                             graph.node[x]['entropy'],
+                             graph.node[y]['entropy'])
+
+    def merge_entropy(graph, src, dst, image, labels):
+        graph.node[dst]['pixels'] += graph.node[src]['pixels']
+        if sum(graph.node[dst]['pixels']) == 0:
+            graph.node[dst]['entropy'] = 0
+        else:
+            graph.node[dst]['entropy'] = entropy(graph.node[dst]['pixels'])
+
+    def _weight_entropy(graph, src, dst, n):
+        return mi(graph.node[dst]['pixels'],
+                  graph.node[n]['pixels'],
+                  graph.node[dst]['entropy'],
+                  graph.node[n]['entropy'])
+
+    def haralick_rag(graph, labels, image,
+                     extra_arguments=[],
+                     extra_keywords={}):
+
+        all_rp = regionprops(labels + 1)
+        Gray = rgb2gray(image.astype(float))
+        for n in graph:
+            Xhstack = []
+            options = {'dharalick': 3}
+
+            '''
+            J = image[:, :, 0]
+            Xhtmp, _ = Bfx_haralick(J, labels == n, options)
+
+            Xhstack.extend(Xhtmp[0])
+
+            J = image[:, :, 1]
+            Xhtmp, _ = Bfx_haralick(J, labels == n, options)
+
+            Xhstack.extend(Xhtmp[0])
+
+            J = image[:, :, 2]
+            Xhtmp, _ = Bfx_haralick(J, labels == n, options)
+
+            Xhstack.extend(Xhtmp[0])
+
+            '''
+            R = labels == n
+            bbox = all_rp[0]['bbox']
+            Xhtmp, _ = Bfx_haralick(
+                Gray[bbox[0]:bbox[2]+1, bbox[1]:bbox[3]+1],
+                R[bbox[0]:bbox[2]+1, bbox[1]:bbox[3]+1],
+                options)
+            Xhstack.extend(Xhtmp[0])
+
+            graph.node[n].update({'labels': [n],
+                                  'haralick': Xhstack})
+
+        for x, y, d in graph.edges_iter(data=True):
+            dh = []
+            Xh = []
+
+            nodex = graph.node[x]['haralick']
+            Xh.append(nodex)
+            dh.extend([0])
+
+            nodey = graph.node[y]['haralick']
+            Xh.append(nodey)
+            dh.extend([1])
+
+            #TODO: Cambiar esto por la distancia euclideana
+            #TODO: No utilizar listas sino siempre arrays de numpy
+            #x[numpy.isneginf(x)] = 0
+            Xh = np.asarray(Xh)
+            print(Xh[0, :].T - Xh[1, :].T)
+            d['weight'] = np.linalg.norm(Xh[0, :].T - Xh[1, :].T)
+            #d['weight'] = Bfa_jfisher(np.asarray(Xh), np.asarray(dh))
+            #print d['weight']
+
+    def merge_haralick(graph, src, dst, image, labels):
+        options = {'dharalick': 3}
+        Xh = []
+        Xhtmp, _ = Bfx_haralick(rgb2gray(image), (labels == dst) + (labels == src), options)
+        Xh.extend(Xhtmp[0])
+        graph.node[dst]['haralick'] = Xh
+
     def _weight_haralick(graph, src, dst, n):
-        """Callback to handle merging nodes by haralick method.
-        The method expects that the mean color of `dst` is already computed.
-        Parameters
-        ----------
-        graph : RAG
-            The graph under consideration.
-        src, dst : int
-            The vertices in `graph` to be merged.
-        n : int
-            A neighbor of `src` or `dst` or both.
-        Returns
-        -------
-        data : dict
-            A dictionary with the `"weight"` attribute set as the absolute
-            difference of the mean color between node `dst` and `n`.
-        """
-        s = np.zeros((IOriginal.shape[0:2]), dtype=np.uint8)
-        for i in graph.node[dst]['labels']:
-            s += L == i
+        dh = []
+        Xh = []
 
-        hdst = haralick(gray2rgb(s) * I)
+        nodedst = graph.node[dst]['haralick']
+        Xh.append(nodedst)
+        dh.extend([0])
 
-        s = np.ones((IOriginal.shape[0:2]), dtype=np.uint8)
-        for i in graph.node[n]['labels']:
-            s += L == i
-        hn = haralick(gray2rgb(s) * I)
+        noden = graph.node[n]['haralick']
+        Xh.append(noden)
+        dh.extend([1])
 
-        #print(hdst)
-        #print(hn)
-
-        J = Bfa_jfisher(hdst + hn, np.zeros(len(hdst)) + np.ones(len(hn)))
-
-        #print(J)
-
-        #diff = graph.node[dst]['mean color'] - graph.node[n]['mean color']
-        #diff = np.linalg.norm(diff)
-        #return {'weight': diff}
-        return J
+        return Bfa_jfisher(np.asarray(Xh), np.asarray(dh))
 
     def _weight_mean_color(graph, src, dst, n):
         """Callback to handle merging nodes by recomputing mean color.
@@ -115,10 +221,9 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, t
 
         diff = graph.node[dst]['mean color'] - graph.node[n]['mean color']
         diff = np.linalg.norm(diff)
-        #return {'weight': diff}
         return diff
 
-    def merge_mean_color(graph, src, dst):
+    def merge_mean_color(graph, src, dst, image, labels):
         """Callback called before merging two nodes of a mean color distance graph.
         This method computes the mean color of `dst`.
         Parameters
@@ -132,6 +237,7 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, t
         graph.node[dst]['pixel count'] += graph.node[src]['pixel count']
         graph.node[dst]['mean color'] = (graph.node[dst]['total color'] /
                                          graph.node[dst]['pixel count'])
+        print(graph.node[dst]['mean color'])
 
     def get_mask(s):
         mask = np.zeros(s, dtype=np.uint8)
@@ -158,17 +264,46 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, t
                 # n_segments sujeto a cambios para optimización de la segmentación
                 L = slic(I, n_segments=400)
                 Islic = mark_boundaries(I, L)
-                g = graph.rag_mean_color(I, L)
-                #lc = graph.draw_rag(L, g, Islic)
-                L2 = graph.merge_hierarchical(L, g, thresh=50, rag_copy=False,
-                                              in_place_merge=True,
-                                              merge_func=merge_mean_color,
-                                              weight_func=_weight_mean_color)
+
+                if method == 'color':
+                    g = graph.rag_mean_color(I, L)
+
+                    #lc = graph.draw_rag(L, g, Islic)
+
+                    L2 = graph.merge_hierarchical(L, g, thresh=50, rag_copy=False,
+                                                  in_place_merge=True,
+                                                  merge_func=merge_mean_color,
+                                                  weight_func=_weight_mean_color)
+
+                    ####################################################################################################
+                elif method == 'entropy':
+
+                    g = graph.region_adjacency_graph(L, image=I, describe_func=entropy_rag)
+
+                    # lc = graph.draw_rag(L, g, Islic)
+
+                    L2 = graph.merge_hierarchical(L, g, thresh=0.1, rag_copy=False,
+                                                  in_place_merge=True,
+                                                  merge_func=merge_entropy,
+                                                  weight_func=_weight_entropy,
+                                                  image=I)
+                    ####################################################################################################
+                elif method == 'haralick':
+
+                    g = graph.region_adjacency_graph(L, image=I, describe_func=haralick_rag)
+
+                    #lc = graph.draw_rag(L, g, Islic)
+
+                    L2 = graph.merge_hierarchical(L, g, thresh=50, rag_copy=False,
+                                                  in_place_merge=True,
+                                                  merge_func=merge_haralick,
+                                                  weight_func=_weight_haralick,
+                                                  image=I)
 
                 Islic2 = mark_boundaries(I, L2)
-                #figure()
-                g2 = graph.rag_mean_color(I, L2)
-                lc2 = graph.draw_rag(L2, g2, Islic2)
+
+                #g2 = graph.rag_mean_color(I, L2)
+                #lc2 = graph.draw_rag(L2, g2, Islic2)
 
                 '''
                 out = label2rgb(L2, I, kind='avg')
@@ -204,26 +339,24 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, t
 
                 slabel = label(sMaskOpen)
 
-                '''FIXME: Solucion temporal --------- '''
+
+                #Calculates the area of each label to select the one with the
+                #máximum área
                 max = 0
                 iMax = 0
                 for i in range(1, slabel.max()):
                     if np.sum(slabel == i) > max:
                         max = np.sum(slabel == i)
                         iMax = i
-                '''------------------------------------'''
 
                 Isegmented = slabel == iMax
+                Isegmented = binary_fill_holes(Isegmented)
 
-                '''FIXME: no entiendo esto para qué'''
-                #if Isegmented[0][0] and Isegmented[0][len(Isegmented[0])-1] and Isegmented[len(Isegmented)-1][0] and Isegmented[len(Isegmented)-1][len(Isegmented[0])-1]:
-                #    Isegmented = np.invert(Isegmented)
-                '''--------------------------------'''
-                Isegmented = binary_fill_holes(sMaskOpen)
+                imshow(Isegmented)
+                show()
 
                 auxmse = compare_mse(GT, Isegmented)
                 all_mse.append(auxmse)
-
                 auxjacc = compare_jaccard(GT, Isegmented)
                 all_jaccard.append(auxjacc)
 
@@ -234,7 +367,7 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, t
                     os.makedirs(pathSegmentation)
                 imsave(pathSegmentation + '/' + image[:-4] + '_our.png', Isegmented, cmap='gray')
                 counter += 1
-                #print(counter, '/', len(fnmatch.filter(os.listdir('imgs'), '*.bmp')))
+                print(counter, '/', len(fnmatch.filter(os.listdir('imgs'), '*.bmp')))
 
                 '''
                 s = np.ones((IOriginal.shape[0:2]), dtype=np.uint8)
@@ -357,8 +490,8 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, t
                     # print(Xstack)
                     # print(Xnstack)
 
-
                     X.append(Xstack)
+                    print(X)
                     if len(Xn) == 0:
                         Xn = Xnstack
                     d.extend([dph2[image[:-4]]])
@@ -428,9 +561,9 @@ def magic(imgPath, imgSegPath, segmentationProcess=True, featuresProcess=True, t
         ds, _ = Bcl_structure(Xtest, struct)
         for i in range(len(op)):
             T, p = Bev_confusion(dtest, ds[:, i])
-            print(b[i]['name'])
-            print(p)
-            print(T)
+            #print(b[i]['name'])
+            #print(p)
+            #print(T)
 
     print("{:10} {:20} {:20}".format('Indice', 'Media', 'Desviacion'))
     print("{:10} {:0.20f} {:0.20f}".format('MSE', sum(all_mse) / len(all_mse), np.std(all_mse)))
@@ -473,6 +606,7 @@ path = 'imgs'
 pathSegmentation = 'our_segmentation'
 magic(imgPath=path,
       imgSegPath=pathSegmentation,
+      method='entropy',
       segmentationProcess=True,
       featuresProcess=True,
       trainAndTest=False)
