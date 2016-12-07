@@ -26,6 +26,7 @@ from scipy.ndimage.morphology import binary_fill_holes
 from balu.FeatureExtraction import Bfx_haralick, Bfx_geo, Bfx_basicgeo
 from skimage.exposure import histogram
 from scipy.special import entr
+from scipy.stats import entropy
 from scipy.io import savemat, loadmat
 from balu.FeatureSelection import Bfs_clean
 from balu.Classification import Bcl_structure
@@ -65,19 +66,60 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
 
         return jaccard
 
-#######################################################################################################################################
+    def mi(pixelsA, pixelsB, HA, HB):
+        if sum(pixelsA + pixelsB) == 0:
+            HAB = 0
+        else:
+            HAB = entropy(pixelsA + pixelsB)
+        if np.isinf(HAB) or np.isneginf(HAB):
+            ent = np.float64(0.0)
+        a = len(pixelsA)
+        b = len(pixelsB)
+        ab = a + b
+        a = a / ab
+        b = b / ab
+        ans = HAB - (a * HA + b * HB)
+        if np.isinf(ans) or np.isneginf(ans):
+            return np.float64(0.0)
+        return ans
 
-    def entropy_rag(graph, labels, image):
-        return graph
+    def entropy_rag(graph, labels, image,
+                     extra_arguments=[],
+                     extra_keywords={}):
+        Gray = rgb2gray(image)
+
+        for n in graph:
+            R = labels == n
+            ii, jj = np.where(R)
+            pixels = [Gray[ii[i], jj[i]] for i in range(len(ii))]
+            if sum(pixels) == 0:
+                ent = np.float64(0.0)
+            else:
+                ent = entropy(pixels)
+            if np.isinf(ent) or np.isneginf(ent):
+                ent = np.float64(0.0)
+            graph.node[n].update({'labels': [n],
+                                  'pixels': pixels,
+                                  'entropy': ent})
+
+        for x, y, d in graph.edges_iter(data=True):
+            d['weight'] = mi(graph.node[x]['pixels'],
+                             graph.node[y]['pixels'],
+                             graph.node[x]['entropy'],
+                             graph.node[y]['entropy'])
 
     def merge_entropy(graph, src, dst, image, labels):
-        return 0
-
+        graph.node[dst]['pixels'] += graph.node[src]['pixels']
+        if sum(graph.node[dst]['pixels']) == 0:
+            graph.node[dst]['entropy'] = 0
+        else:
+            graph.node[dst]['entropy'] = entropy(graph.node[dst]['pixels'])
 
     def _weight_entropy(graph, src, dst, n):
-        return 0
-
-#######################################################################################################################################
+        return mi(graph.node[dst]['pixels'],
+                  graph.node[n]['pixels'],
+                  graph.node[dst]['entropy'],
+                  graph.node[n]['entropy'])
 
     def haralick_rag(graph, labels, image,
                      extra_arguments=[],
@@ -115,7 +157,6 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
             Xhstack.extend(Xhtmp[0])
 
             graph.node[n].update({'labels': [n],
-                                  'pixel count': 0,
                                   'haralick': Xhstack})
 
         for x, y, d in graph.edges_iter(data=True):
@@ -134,7 +175,7 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
             #TODO: No utilizar listas sino siempre arrays de numpy
             #x[numpy.isneginf(x)] = 0
             Xh = np.asarray(Xh)
-            print Xh[0, :].T - Xh[1, :].T
+            print(Xh[0, :].T - Xh[1, :].T)
             d['weight'] = np.linalg.norm(Xh[0, :].T - Xh[1, :].T)
             #d['weight'] = Bfa_jfisher(np.asarray(Xh), np.asarray(dh))
             #print d['weight']
@@ -180,10 +221,9 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
 
         diff = graph.node[dst]['mean color'] - graph.node[n]['mean color']
         diff = np.linalg.norm(diff)
-        #return {'weight': diff}
         return diff
 
-    def merge_mean_color(graph, src, dst):
+    def merge_mean_color(graph, src, dst, image, labels):
         """Callback called before merging two nodes of a mean color distance graph.
         This method computes the mean color of `dst`.
         Parameters
@@ -197,6 +237,7 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
         graph.node[dst]['pixel count'] += graph.node[src]['pixel count']
         graph.node[dst]['mean color'] = (graph.node[dst]['total color'] /
                                          graph.node[dst]['pixel count'])
+        print(graph.node[dst]['mean color'])
 
     def get_mask(s):
         mask = np.zeros(s, dtype=np.uint8)
@@ -241,10 +282,10 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
 
                     # lc = graph.draw_rag(L, g, Islic)
 
-                    L2 = graph.merge_hierarchical(L, g, thresh=50, rag_copy=False,
+                    L2 = graph.merge_hierarchical(L, g, thresh=0.1, rag_copy=False,
                                                   in_place_merge=True,
-                                                  merge_func=merge_mean_color,
-                                                  weight_func=_weight_mean_color,
+                                                  merge_func=merge_entropy,
+                                                  weight_func=_weight_entropy,
                                                   image=I)
                     ####################################################################################################
                 elif method == 'haralick':
@@ -449,11 +490,8 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
                     # print(Xstack)
                     # print(Xnstack)
 
-
                     X.append(Xstack)
-                    print X
-                    imshow()
-                    show()
+                    print(X)
                     if len(Xn) == 0:
                         Xn = Xnstack
                     d.extend([dph2[image[:-4]]])
@@ -568,7 +606,7 @@ path = 'imgs'
 pathSegmentation = 'our_segmentation'
 magic(imgPath=path,
       imgSegPath=pathSegmentation,
-      method='haralick',
+      method='entropy',
       segmentationProcess=True,
       featuresProcess=True,
       trainAndTest=False)
