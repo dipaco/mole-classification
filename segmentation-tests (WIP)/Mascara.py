@@ -13,7 +13,7 @@ for image in fnmatch.filter(os.listdir('imgs'), '*.bmp'):
     def get_mask(s):
         plt.figure()
         mask = np.zeros(s, dtype=np.uint8)
-        rr, cc = ellipse(round(s[0] / 2), round(s[1] / 2), round(s[0] / 2) , round(s[1] / 2) )
+        rr, cc = ellipse((s[0] / 2), (s[1] / 2), (s[0] / 2) -1 , (s[1] / 2) -1 )
         mask[rr, cc] = 1
         plt.imshow(mask)
         plt.show()
