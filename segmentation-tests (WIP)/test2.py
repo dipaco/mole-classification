@@ -280,15 +280,18 @@ def magic(imgPath, imgSegPath, figPath, segmentationProcess=True, featuresProces
 
             fig = plt.figure()
             ax1 = fig.add_subplot(221)
-            ax1.imshow(IOriginal)
+            ax1.imshow(IOriginal);
+            ax1.title('Lesion Image')
             ax2 = fig.add_subplot(222)
-            ax2.imshow(Islic2)
+            ax2.imshow(Islic2);
+            ax2.title('Merged Superpixels')
             ax3 = fig.add_subplot(223)
-            ax3.imshow(Isegmented)
+            ax3.imshow(Isegmented);
+            ax3.title('Segmented Image')
             ax4 = fig.add_subplot(224)
-            ax4.imshow(GT)
+            ax4.imshow(GT);
+            ax4.title('Ground Truth')
             plt.tight_layout()
-
             fig.savefig(pathFigures + '/' + image[:-4] + '_fig.svg', transparent=True, bbox_inches='tight', pad_inches=0)
 
 
