@@ -8,19 +8,13 @@ Requeriments:
 import numpy as np
 from matplotlib.image import imread
 from skimage.color import rgb2gray, label2rgb, gray2rgb
-from skimage.filters import threshold_otsu
 from skimage.segmentation import slic, mark_boundaries
-from skimage.measure import regionprops
 from matplotlib.pyplot import show, imshow, subplot, figure, title, imsave, suptitle, colorbar
-from future import graph
 from matplotlib import colors
 from skimage.measure import label, compare_mse
 from balu.DataSelectionAndGeneration import Bds_nostratify
-from skimage.filters import gaussian
-from skimage.morphology import opening, disk, closing
 import os
 import fnmatch
-from scipy.ndimage.morphology import binary_fill_holes
 from balu.FeatureExtraction import Bfx_haralick, Bfx_geo, Bfx_basicgeo
 from skimage.exposure import histogram
 from scipy.special import entr
@@ -30,8 +24,7 @@ from balu.Classification import Bcl_structure
 from balu.PerformanceEvaluation import Bev_performance, Bev_confusion
 
 #Segmentation
-from segmentation import entropy_rag, _weight_entropy, merge_entropy, haralick_rag, _weight_haralick, merge_haralick, _weight_mean_color, merge_mean_color
-#Utils
+from segmentation import segment
 from utils import get_mask, compare_jaccard
 
 
@@ -68,102 +61,11 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
 
                 # Gets the mask to avoid dark areas in segmentation
                 mask = get_mask(IOriginal.shape[0:2])
-                maskrgb = gray2rgb(mask)
-                #IOriginalGray = rgb2gray(IOriginal)
-                I = maskrgb * IOriginal
-
+                I = gray2rgb(mask) * IOriginal
                 GT = (rgb2gray(imread(path + 'GT/' + image[:-4] + '_lesion.bmp').astype(float)) * mask) > 120
 
-                # n_segments sujeto a cambios para optimización de la segmentación
-                L = slic(I, n_segments=400)
-                Islic = mark_boundaries(I, L)
-
-                if method == 'color':
-                    g = graph.rag_mean_color(I, L)
-
-                    #lc = graph.draw_rag(L, g, Islic)
-
-                    L2 = graph.merge_hierarchical(L, g, thresh=50, rag_copy=False,
-                                                  in_place_merge=True,
-                                                  merge_func=merge_mean_color,
-                                                  weight_func=_weight_mean_color)
-
-                    ####################################################################################################
-                elif method == 'entropy':
-                    g = graph.region_adjacency_graph(L, image=I, describe_func=entropy_rag)
-
-                    # lc = graph.draw_rag(L, g, Islic)
-                    L2 = graph.merge_hierarchical(L, g, thresh=0.3, rag_copy=False,
-                                                  in_place_merge=True,
-                                                  merge_func=merge_entropy,
-                                                  weight_func=_weight_entropy,
-                                                  image=I)
-                    ####################################################################################################
-                elif method == 'haralick':
-
-                    g = graph.region_adjacency_graph(L, image=I, describe_func=haralick_rag)
-
-                    #lc = graph.draw_rag(L, g, Islic)
-
-                    L2 = graph.merge_hierarchical(L, g, thresh=50, rag_copy=False,
-                                                  in_place_merge=True,
-                                                  merge_func=merge_haralick,
-                                                  weight_func=_weight_haralick,
-                                                  image=I)
-
-                Islic2 = mark_boundaries(I, L2)
-
-                #g2 = graph.rag_mean_color(I, L2)
-                #lc2 = graph.draw_rag(L2, g2, Islic2)
-
-                '''
-                out = label2rgb(L2, I, kind='avg')
-                out = mark_boundaries(out, L2, (0, 0, 0))
-                '''
-
-                s = np.zeros((IOriginal.shape[0:2]), dtype=np.uint8)
-                L2label = label(L2)
-
-                IGray = rgb2gray(IOriginal)# * mask
-                #IGaussian = gaussian(IGray, sigma=0.5)
-                thresh = threshold_otsu(IGray)
-                IOtsu = IGray <= thresh
-                IOtsu = np.logical_and(IOtsu, mask)
-                #IOtsu = closing(IOtsu, selem=disk(5))
-
-                #Islic3 = mark_boundaries(IOtsu, L2)
-                #g3 = graph.rag_mean_color(I, L2)
-                #lc2 = graph.draw_rag(L2, g3, Islic3, border_color='#ff6600')
-                #imshow(lc2, cmap='gray')
-                #show()
-
-                #imshow(L2label)
-                #show()
-                J = np.zeros(L2label.max() + 1)
-                for i in range(0, L2label.max() + 1):
-                    lbl = np.logical_and((L2label == i), mask)
-                    lbl = binary_fill_holes(lbl)
-                    jaccard = compare_jaccard(IOtsu, lbl)
-                    J[i] = jaccard
-
-                sMask = np.logical_and((L2label == np.argmax(J)), mask)
-                sMask = closing(sMask, selem=disk(3))
-                slabel = label(sMask)
-
-                #Calculates the area of each label to select the one with the
-                #máximum área
-                max = 0
-                iMax = -1
-                for i in range(1, slabel.max() + 1):
-                    if np.sum(slabel == i) > max:
-                        max = np.sum(slabel == i)
-                        iMax = i
-
-                Isegmented = slabel == iMax
-                Isegmented = binary_fill_holes(Isegmented)
-
-                #imshow(Isegmented)
-                #show()
+                #Segment the each mole
+                Isegmented = segment(I, mask, method=method)
 
                 auxmse = compare_mse(GT, Isegmented)
                 all_mse.append(auxmse)
@@ -174,43 +76,17 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
 
                 if not os.path.exists(pathSegmentation):
                     os.makedirs(pathSegmentation)
+
                 imsave(pathSegmentation + '/' + image[:-4] + '_our.png', Isegmented, cmap='gray')
                 counter += 1
                 print('{0} / {1}'.format(counter, len(fnmatch.filter(os.listdir('imgs'), '*.bmp'))))
 
-                '''
-                s = np.ones((IOriginal.shape[0:2]), dtype=np.uint8)
-                L2label = label(L2)
-
-                for i in range(1, L2label.max()):
-                    R = 0
-                    G = 0
-                    B = 0
-                    count = 0
-                    It = (gray2rgb(L2label == i) * I)
-                    for j in range(len(I)):
-                        for k in range(len(I[j])):
-                            if It[j][k][0] > 0 and It[j][k][1] > 0 and It[j][k][2] > 0 and:              #??
-                                print('R +=', It[j][k][0])
-                                R += It[j][k][0]
-                                print('G +=', It[j][k][1])
-                                G += It[j][k][1]
-                                print('B +=', It[j][k][2])
-                                B += It[j][k][2]
-                                count += 1
-                    print(R/count)
-                    print(G/count)
-                    print(B/count)
-                    imshow(gray2rgb(L2label == i) * I)
-                    show()
-                '''
             else: #SEGMENTATION IS DONE AND SAVED
                 IOriginal = imread(path + '/' + image)
 
                 #Gets the mask to avoid dark areas in segmentation
                 mask = get_mask(IOriginal.shape[0:2])
-                maskrgb = gray2rgb(mask)
-                I = maskrgb * IOriginal
+                I = gray2rgb(mask) * IOriginal
                 GT = (rgb2gray(imread(path + 'GT/' + image[:-4] + '_lesion.bmp').astype(float)) * mask) > 120
                 Isegmented = rgb2gray(imread(pathSegmentation + '/' + image[:-4] + '_our.png').astype(float)) > 120
 
@@ -351,6 +227,7 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
             #print(b[i]['name'])
             #print(p)
             #print(T)
+
 '''
 Clinical Diagnosis:
     0 - Common Nevus;

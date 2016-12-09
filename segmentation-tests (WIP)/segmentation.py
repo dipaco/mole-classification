@@ -1,10 +1,16 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 from scipy.stats import entropy
+from scipy.ndimage.morphology import binary_fill_holes
 from skimage.color import rgb2gray
 from skimage.measure import regionprops
+from skimage.segmentation import slic, mark_boundaries
+from skimage.filters import threshold_otsu
+from skimage.morphology import label, closing, disk
+from future import graph
 from balu.FeatureExtraction import Bfx_haralick
 from balu.FeatureAnalysis import Bfa_jfisher
+from utils import compare_jaccard
 from matplotlib.pyplot import imshow, show
 
 
@@ -193,3 +199,95 @@ def merge_mean_color(graph, src, dst, image, labels):
     graph.node[dst]['pixel count'] += graph.node[src]['pixel count']
     graph.node[dst]['mean color'] = (graph.node[dst]['total color'] /
                                      graph.node[dst]['pixel count'])
+
+
+def segment(I, mask, method):
+
+    # n_segments sujeto a cambios para optimización de la segmentación
+    L = slic(I, n_segments=400)
+    Islic = mark_boundaries(I, L)
+
+    if method == 'color':
+        g = graph.rag_mean_color(I, L)
+
+        # lc = graph.draw_rag(L, g, Islic)
+
+        L2 = graph.merge_hierarchical(L, g, thresh=50, rag_copy=False,
+                                      in_place_merge=True,
+                                      merge_func=merge_mean_color,
+                                      weight_func=_weight_mean_color)
+
+        ####################################################################################################
+    elif method == 'entropy':
+        g = graph.region_adjacency_graph(L, image=I, describe_func=entropy_rag)
+
+        # lc = graph.draw_rag(L, g, Islic)
+        L2 = graph.merge_hierarchical(L, g, thresh=0.3, rag_copy=False,
+                                      in_place_merge=True,
+                                      merge_func=merge_entropy,
+                                      weight_func=_weight_entropy,
+                                      image=I)
+        ####################################################################################################
+    elif method == 'haralick':
+
+        g = graph.region_adjacency_graph(L, image=I, describe_func=haralick_rag)
+
+        # lc = graph.draw_rag(L, g, Islic)
+
+        L2 = graph.merge_hierarchical(L, g, thresh=50, rag_copy=False,
+                                      in_place_merge=True,
+                                      merge_func=merge_haralick,
+                                      weight_func=_weight_haralick,
+                                      image=I)
+
+    Islic2 = mark_boundaries(I, L2)
+
+    # g2 = graph.rag_mean_color(I, L2)
+    # lc2 = graph.draw_rag(L2, g2, Islic2)
+
+    '''
+    out = label2rgb(L2, I, kind='avg')
+    out = mark_boundaries(out, L2, (0, 0, 0))
+    '''
+
+    s = np.zeros((I.shape[0:2]), dtype=np.uint8)
+    L2label = label(L2)
+
+    IGray = rgb2gray(I)  # * mask
+    # IGaussian = gaussian(IGray, sigma=0.5)
+    thresh = threshold_otsu(IGray)
+    IOtsu = IGray <= thresh
+    IOtsu = np.logical_and(IOtsu, mask)
+    # IOtsu = closing(IOtsu, selem=disk(5))
+
+    # Islic3 = mark_boundaries(IOtsu, L2)
+    # g3 = graph.rag_mean_color(I, L2)
+    # lc2 = graph.draw_rag(L2, g3, Islic3, border_color='#ff6600')
+    # imshow(lc2, cmap='gray')
+    # show()
+
+    # imshow(L2label)
+    # show()
+    J = np.zeros(L2label.max() + 1)
+    for i in range(0, L2label.max() + 1):
+        lbl = np.logical_and((L2label == i), mask)
+        lbl = binary_fill_holes(lbl)
+        jaccard = compare_jaccard(IOtsu, lbl)
+        J[i] = jaccard
+
+    sMask = np.logical_and((L2label == np.argmax(J)), mask)
+    sMask = closing(sMask, selem=disk(3))
+    slabel = label(sMask)
+
+    # Calculates the area of each label to select the one with the
+    # máximum área
+    max = 0
+    iMax = -1
+    for i in range(1, slabel.max() + 1):
+        if np.sum(slabel == i) > max:
+            max = np.sum(slabel == i)
+            iMax = i
+
+    Isegmented = slabel == iMax
+    Isegmented = binary_fill_holes(Isegmented)
+    return Isegmented
