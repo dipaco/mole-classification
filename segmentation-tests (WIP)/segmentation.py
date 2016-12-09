@@ -209,31 +209,20 @@ def segment(I, mask, method):
 
     if method == 'color':
         g = graph.rag_mean_color(I, L)
-
         # lc = graph.draw_rag(L, g, Islic)
-
         L2 = graph.merge_hierarchical(L, g, thresh=50, rag_copy=False,
                                       in_place_merge=True,
                                       merge_func=merge_mean_color,
                                       weight_func=_weight_mean_color)
-
-        ####################################################################################################
     elif method == 'entropy':
         g = graph.region_adjacency_graph(L, image=I, describe_func=entropy_rag)
-
-        # lc = graph.draw_rag(L, g, Islic)
         L2 = graph.merge_hierarchical(L, g, thresh=0.3, rag_copy=False,
                                       in_place_merge=True,
                                       merge_func=merge_entropy,
                                       weight_func=_weight_entropy,
                                       image=I)
-        ####################################################################################################
     elif method == 'haralick':
-
         g = graph.region_adjacency_graph(L, image=I, describe_func=haralick_rag)
-
-        # lc = graph.draw_rag(L, g, Islic)
-
         L2 = graph.merge_hierarchical(L, g, thresh=50, rag_copy=False,
                                       in_place_merge=True,
                                       merge_func=merge_haralick,
@@ -242,19 +231,10 @@ def segment(I, mask, method):
 
     Islic2 = mark_boundaries(I, L2)
 
-    # g2 = graph.rag_mean_color(I, L2)
-    # lc2 = graph.draw_rag(L2, g2, Islic2)
-
-    '''
-    out = label2rgb(L2, I, kind='avg')
-    out = mark_boundaries(out, L2, (0, 0, 0))
-    '''
-
     s = np.zeros((I.shape[0:2]), dtype=np.uint8)
     L2label = label(L2)
 
     IGray = rgb2gray(I)  # * mask
-    # IGaussian = gaussian(IGray, sigma=0.5)
     thresh = threshold_otsu(IGray)
     IOtsu = IGray <= thresh
     IOtsu = np.logical_and(IOtsu, mask)
@@ -266,8 +246,6 @@ def segment(I, mask, method):
     # imshow(lc2, cmap='gray')
     # show()
 
-    # imshow(L2label)
-    # show()
     J = np.zeros(L2label.max() + 1)
     for i in range(0, L2label.max() + 1):
         lbl = np.logical_and((L2label == i), mask)

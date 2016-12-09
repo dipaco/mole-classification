@@ -10,7 +10,6 @@ from matplotlib.image import imread
 from skimage.color import rgb2gray, label2rgb, gray2rgb
 from skimage.segmentation import slic, mark_boundaries
 from matplotlib.pyplot import show, imshow, subplot, figure, title, imsave, suptitle, colorbar
-from matplotlib import colors
 from skimage.measure import label, compare_mse
 from balu.DataSelectionAndGeneration import Bds_nostratify
 import os
@@ -83,7 +82,6 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
 
             else: #SEGMENTATION IS DONE AND SAVED
                 IOriginal = imread(path + '/' + image)
-
                 #Gets the mask to avoid dark areas in segmentation
                 mask = get_mask(IOriginal.shape[0:2])
                 I = gray2rgb(mask) * IOriginal
@@ -93,10 +91,8 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
             if featuresProcess:
 
                 if (np.sum(Isegmented) > 0):
-
                     Xstack = []
                     Xnstack = []
-                    #print(image[: -4])
 
                     options = {'b': [
                         {'name': 'basicgeo', 'options': {'show': False}},                       # basic geometric features
@@ -106,37 +102,28 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
                     ]}
 
                     Xtmp, Xntmp = Bfx_geo(Isegmented, options)
-                    #print(Xtmp)
-                    #print(Xntmp)
-
                     Xstack.extend(Xtmp[0])
                     Xnstack.extend(Xntmp)
 
-                    options = {'dharalick': 3}  # 3 pixels distance for coocurrence
+                    options = {'dharalick': 10}  # 3 pixels distance for coocurrence
 
                     J = I[:, :, 0]  # red channel
                     Xtmp, Xntmp = Bfx_haralick(J, Isegmented, options)  # Haralick features
-                    # print(Xtmp)
                     Xntmp = [name + '_red' for name in Xntmp]
-                    # print(Xntmp)
 
                     Xstack.extend(Xtmp[0])
                     Xnstack.extend(Xntmp)
 
                     J = I[:, :, 1]  # green channel
                     Xtmp, Xntmp = Bfx_haralick(J, Isegmented, options)  # Haralick features
-                    #print(Xtmp)
                     Xntmp = [name + '_green' for name in Xntmp]
-                    #print(Xntmp)
 
                     Xstack.extend(Xtmp[0])
                     Xnstack.extend(Xntmp)
 
                     J = I[:, :, 2]  # blue channel
                     Xtmp, Xntmp = Bfx_haralick(J, Isegmented, options)  # Haralick features
-                    #print(Xtmp)
                     Xntmp = [name + '_blue' for name in Xntmp]
-                    #print(Xntmp)
 
                     Xstack.extend(Xtmp[0])
                     Xnstack.extend(Xntmp)
@@ -145,35 +132,22 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
                     a = [element / sum(a) for element in a]
 
                     Xtmp = [entr(a).sum(axis=0)]
-                    #print(Xtmp)
                     Xntmp = ['Entropy']
-                    #print(Xntmp)
 
                     Xstack.extend(Xtmp)
                     Xnstack.extend(Xntmp)
-                    #print(Xstack)
-                    #print(Xnstack)
 
-                    mean_red = 0
-                    mean_green = 0
-                    mean_blue = 0
-                    count = 0
+                    count = float(I[:, :, 0].size)
 
-                    for i in range(len(I)):
-                        for j in range(len(I[i])):
-                            if mask[i][j]:
-                                mean_red += I[i][j][0]
-                                mean_green += I[i][j][1]
-                                mean_blue += I[i][j][2]
-                                count += 1
+                    mean_red = np.sum(I[:, :, 0])
+                    mean_green = np.sum(I[:, :, 1])
+                    mean_blue = np.sum(I[:, :, 2])
 
                     Xtmp = [mean_red / count, mean_green / count, mean_blue / count]
                     Xntmp = ['mean_red', 'mean_green', 'mean_blue']
 
                     Xstack.extend(Xtmp)
                     Xnstack.extend(Xntmp)
-                    # print(Xstack)
-                    # print(Xnstack)
 
                     X.append(Xstack)
                     if len(Xn) == 0:
@@ -206,8 +180,7 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
         sclean = Bfs_clean(X, 1)
         Xclean = X[:, sclean]
         Xnclean = Xn[sclean]
-        Xtrain, dtrain, Xtest, dtest = Bds_nostratify(Xclean, d, 0.75)
-        print(Xtrain.shape, Xtest.shape, dtrain.shape, dtest.shape)
+        Xtrain, dtrain, Xtest, dtest = Bds_nostratify(Xclean, d, 0.6)
 
         b = [
             {'name': 'lda', 'options': {'p': []}},
@@ -215,17 +188,17 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
             {'name': 'qda', 'options': {'p': []}},
             {'name': 'svm', 'options': {'kernel': 1}},
             {'name': 'svm', 'options': {'kernel': 2}},
-            #{'name': 'knn', 'options': {'k': 5}},
+            {'name': 'knn', 'options': {'k': 5}},
             {'name': 'nn', 'options': {'method': 1, 'iter': 15}}
         ]
         op = b
         struct = Bcl_structure(Xtrain, dtrain, op)
 
+        print('training')
         ds, _ = Bcl_structure(Xtest, struct)
         for i in range(len(op)):
             T, p = Bev_confusion(dtest, ds[:, i])
-            #print(b[i]['name'])
-            #print(p)
+            print(b[i]['name'], ': ', p)
             #print(T)
 
 '''
@@ -265,6 +238,6 @@ pathSegmentation = 'our_segmentation'
 magic(imgPath=path,
       imgSegPath=pathSegmentation,
       method='color',
-      segmentationProcess=True,
-      featuresProcess=True,
-      trainAndTest=False)
+      segmentationProcess=False,
+      featuresProcess=False,
+      trainAndTest=True)
