@@ -11,7 +11,7 @@ from future import graph
 from balu.FeatureExtraction import Bfx_haralick
 from balu.FeatureAnalysis import Bfa_jfisher
 from utils import compare_jaccard
-from matplotlib.pyplot import imshow, show
+from matplotlib.pyplot import imshow, show, figure, subplot
 
 
 def entropy_rag(graph, labels, image,
@@ -87,79 +87,45 @@ def haralick_rag(graph, labels, image,
     all_rp = regionprops(labels + 1)
     Gray = rgb2gray(image.astype(float))
     for n in graph:
-        Xhstack = []
         options = {'dharalick': 3}
-
-        '''
-        J = image[:, :, 0]
-        Xhtmp, _ = Bfx_haralick(J, labels == n, options)
-
-        Xhstack.extend(Xhtmp[0])
-
-        J = image[:, :, 1]
-        Xhtmp, _ = Bfx_haralick(J, labels == n, options)
-
-        Xhstack.extend(Xhtmp[0])
-
-        J = image[:, :, 2]
-        Xhtmp, _ = Bfx_haralick(J, labels == n, options)
-
-        Xhstack.extend(Xhtmp[0])
-
-        '''
         R = labels == n
-        bbox = all_rp[0]['bbox']
+        bbox = all_rp[n]['bbox']
         Xhtmp, _ = Bfx_haralick(
             Gray[bbox[0]:bbox[2] + 1, bbox[1]:bbox[3] + 1],
             R[bbox[0]:bbox[2] + 1, bbox[1]:bbox[3] + 1],
             options)
-        Xhstack.extend(Xhtmp[0])
 
         graph.node[n].update({'labels': [n],
-                              'haralick': Xhstack})
+                              'haralick': Xhtmp,
+                              'mask': R,
+                              'image': Gray})
 
     for x, y, d in graph.edges_iter(data=True):
-        dh = []
-        Xh = []
-
         nodex = graph.node[x]['haralick']
-        Xh.append(nodex)
-        dh.extend([0])
-
         nodey = graph.node[y]['haralick']
-        Xh.append(nodey)
-        dh.extend([1])
 
-        # TODO: Cambiar esto por la distancia euclideana
-        # TODO: No utilizar listas sino siempre arrays de numpy
         # x[numpy.isneginf(x)] = 0
-        Xh = np.asarray(Xh)
-        d['weight'] = np.linalg.norm(Xh[0, :].T - Xh[1, :].T)
-        # d['weight'] = Bfa_jfisher(np.asarray(Xh), np.asarray(dh))
-        # print d['weight']
+        d['weight'] = np.linalg.norm(nodex.T - nodey.T)
 
 
 def merge_haralick(graph, src, dst, image, labels):
     options = {'dharalick': 3}
-    Xh = []
-    Xhtmp, _ = Bfx_haralick(rgb2gray(image), (labels == dst) + (labels == src), options)
-    Xh.extend(Xhtmp[0])
-    graph.node[dst]['haralick'] = Xh
+    mask = np.logical_or(graph.node[dst]['mask'], graph.node[src]['mask'])
+    bbox = regionprops(mask.astype(int))[0]['bbox']
+    image = graph.node[dst]['image']
+    Xhtmp, _ = Bfx_haralick(
+        image[bbox[0]:bbox[2] + 1, bbox[1]:bbox[3] + 1],
+        mask[bbox[0]:bbox[2] + 1, bbox[1]:bbox[3] + 1],
+        options)
+    graph.node[dst]['haralick'] = Xhtmp
+    graph.node[dst]['mask'] = mask
 
 
 def _weight_haralick(graph, src, dst, n):
-    dh = []
-    Xh = []
-
     nodedst = graph.node[dst]['haralick']
-    Xh.append(nodedst)
-    dh.extend([0])
-
     noden = graph.node[n]['haralick']
-    Xh.append(noden)
-    dh.extend([1])
-
-    return Bfa_jfisher(np.asarray(Xh), np.asarray(dh))
+    dd = np.linalg.norm(nodedst.T - noden.T)
+    return dd
 
 
 def _weight_mean_color(graph, src, dst, n):
@@ -223,7 +189,7 @@ def segment(I, mask, method):
                                       image=I)
     elif method == 'haralick':
         g = graph.region_adjacency_graph(L, image=I, describe_func=haralick_rag)
-        L2 = graph.merge_hierarchical(L, g, thresh=50, rag_copy=False,
+        L2 = graph.merge_hierarchical(L, g, thresh=150, rag_copy=False,
                                       in_place_merge=True,
                                       merge_func=merge_haralick,
                                       weight_func=_weight_haralick,

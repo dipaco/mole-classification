@@ -105,7 +105,7 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
                     Xstack.extend(Xtmp[0])
                     Xnstack.extend(Xntmp)
 
-                    options = {'dharalick': 10}  # 3 pixels distance for coocurrence
+                    options = {'dharalick': 3}  # 3 pixels distance for coocurrence
 
                     J = I[:, :, 0]  # red channel
                     Xtmp, Xntmp = Bfx_haralick(J, Isegmented, options)  # Haralick features
@@ -237,7 +237,7 @@ path = 'imgs'
 pathSegmentation = 'our_segmentation'
 magic(imgPath=path,
       imgSegPath=pathSegmentation,
-      method='color',
-      segmentationProcess=False,
-      featuresProcess=False,
+      method='haralick',
+      segmentationProcess=True,
+      featuresProcess=True,
       trainAndTest=True)
