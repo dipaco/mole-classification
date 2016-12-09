@@ -14,9 +14,7 @@ from skimage.measure import regionprops
 from matplotlib.pyplot import show, imshow, subplot, figure, title, imsave, suptitle, colorbar
 from future import graph
 from matplotlib import colors
-from skimage.draw import ellipse
 from skimage.measure import label, compare_mse
-from balu.FeatureAnalysis import Bfa_jfisher
 from balu.DataSelectionAndGeneration import Bds_nostratify
 from skimage.filters import gaussian
 from skimage.morphology import opening, disk, closing
@@ -32,7 +30,9 @@ from balu.Classification import Bcl_structure
 from balu.PerformanceEvaluation import Bev_performance, Bev_confusion
 
 #Segmentation
-from segmentation import entropy_rag, _weight_entropy, merge_entropy
+from segmentation import entropy_rag, _weight_entropy, merge_entropy, haralick_rag, _weight_haralick, merge_haralick, _weight_mean_color, merge_mean_color
+#Utils
+from utils import get_mask, compare_jaccard
 
 
 def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, featuresProcess=True, trainAndTest=True):
@@ -58,148 +58,10 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
         d = []
         imagesNames = []
 
-    def compare_jaccard(img1, img2):
-
-        num = np.sum(np.logical_and(img1, img2))
-        den = float(np.sum(np.logical_or(img1, img2)))
-        if den == 0.0:
-            jaccard = 0.0
-        else:
-            jaccard = num / den
-
-        return jaccard
-
-
-    def haralick_rag(graph, labels, image,
-                     extra_arguments=[],
-                     extra_keywords={}):
-
-        all_rp = regionprops(labels + 1)
-        Gray = rgb2gray(image.astype(float))
-        for n in graph:
-            Xhstack = []
-            options = {'dharalick': 3}
-
-            '''
-            J = image[:, :, 0]
-            Xhtmp, _ = Bfx_haralick(J, labels == n, options)
-
-            Xhstack.extend(Xhtmp[0])
-
-            J = image[:, :, 1]
-            Xhtmp, _ = Bfx_haralick(J, labels == n, options)
-
-            Xhstack.extend(Xhtmp[0])
-
-            J = image[:, :, 2]
-            Xhtmp, _ = Bfx_haralick(J, labels == n, options)
-
-            Xhstack.extend(Xhtmp[0])
-
-            '''
-            R = labels == n
-            bbox = all_rp[0]['bbox']
-            Xhtmp, _ = Bfx_haralick(
-                Gray[bbox[0]:bbox[2]+1, bbox[1]:bbox[3]+1],
-                R[bbox[0]:bbox[2]+1, bbox[1]:bbox[3]+1],
-                options)
-            Xhstack.extend(Xhtmp[0])
-
-            graph.node[n].update({'labels': [n],
-                                  'haralick': Xhstack})
-
-        for x, y, d in graph.edges_iter(data=True):
-            dh = []
-            Xh = []
-
-            nodex = graph.node[x]['haralick']
-            Xh.append(nodex)
-            dh.extend([0])
-
-            nodey = graph.node[y]['haralick']
-            Xh.append(nodey)
-            dh.extend([1])
-
-            #TODO: Cambiar esto por la distancia euclideana
-            #TODO: No utilizar listas sino siempre arrays de numpy
-            #x[numpy.isneginf(x)] = 0
-            Xh = np.asarray(Xh)
-            print(Xh[0, :].T - Xh[1, :].T)
-            d['weight'] = np.linalg.norm(Xh[0, :].T - Xh[1, :].T)
-            #d['weight'] = Bfa_jfisher(np.asarray(Xh), np.asarray(dh))
-            #print d['weight']
-
-    def merge_haralick(graph, src, dst, image, labels):
-        options = {'dharalick': 3}
-        Xh = []
-        Xhtmp, _ = Bfx_haralick(rgb2gray(image), (labels == dst) + (labels == src), options)
-        Xh.extend(Xhtmp[0])
-        graph.node[dst]['haralick'] = Xh
-
-    def _weight_haralick(graph, src, dst, n):
-        dh = []
-        Xh = []
-
-        nodedst = graph.node[dst]['haralick']
-        Xh.append(nodedst)
-        dh.extend([0])
-
-        noden = graph.node[n]['haralick']
-        Xh.append(noden)
-        dh.extend([1])
-
-        return Bfa_jfisher(np.asarray(Xh), np.asarray(dh))
-
-    def _weight_mean_color(graph, src, dst, n):
-        """Callback to handle merging nodes by recomputing mean color.
-        The method expects that the mean color of `dst` is already computed.
-        Parameters
-        ----------
-        graph : RAG
-            The graph under consideration.
-        src, dst : int
-            The vertices in `graph` to be merged.
-        n : int
-            A neighbor of `src` or `dst` or both.
-        Returns
-        -------
-        data : dict
-            A dictionary with the `"weight"` attribute set as the absolute
-            difference of the mean color between node `dst` and `n`.
-        """
-
-        diff = graph.node[dst]['mean color'] - graph.node[n]['mean color']
-        diff = np.linalg.norm(diff)
-        return diff
-
-    def merge_mean_color(graph, src, dst, image, labels):
-        """Callback called before merging two nodes of a mean color distance graph.
-        This method computes the mean color of `dst`.
-        Parameters
-        ----------
-        graph : RAG
-            The graph under consideration.
-        src, dst : int
-            The vertices in `graph` to be merged.
-        """
-        graph.node[dst]['total color'] += graph.node[src]['total color']
-        graph.node[dst]['pixel count'] += graph.node[src]['pixel count']
-        graph.node[dst]['mean color'] = (graph.node[dst]['total color'] /
-                                         graph.node[dst]['pixel count'])
-        print(graph.node[dst]['mean color'])
-
-    def get_mask(s):
-        mask = np.zeros(s, dtype=np.uint8)
-        rr, cc = ellipse(round(s[0] / 2), round(s[1] / 2), round(s[0] / 2) - 1, round(s[1] / 2) - 1)
-        mask[rr, cc] = 1
-        return mask
-
     if segmentationProcess or featuresProcess:
         print("{:10} {:20} {:20}".format('Imagen', 'MSE', 'JACCARD'))
         counter = 0
         for image in fnmatch.filter(os.listdir('imgs'), '*.bmp'):
-            if counter == 3:
-                break
 
             if segmentationProcess:
                 IOriginal = imread(path + '/' + image)
@@ -213,7 +75,7 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
                 GT = (rgb2gray(imread(path + 'GT/' + image[:-4] + '_lesion.bmp').astype(float)) * mask) > 120
 
                 # n_segments sujeto a cambios para optimización de la segmentación
-                L = slic(I, n_segments=200)
+                L = slic(I, n_segments=400)
                 Islic = mark_boundaries(I, L)
 
                 if method == 'color':
@@ -438,16 +300,10 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
                     # print(Xnstack)
 
                     X.append(Xstack)
-                    print(X)
                     if len(Xn) == 0:
                         Xn = Xnstack
                     d.extend([dph2[image[:-4]]])
                     imagesNames.extend([image[: -4]])
-
-                    #print(X)
-                    #print(Xn)
-                    #print(d)
-                    #print(imagesNames)
 
         if featuresProcess:
             print(X)
@@ -469,28 +325,13 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
         d = data['d'][0]
         imagesNames = data['imagesNames']
 
-        #print(X)
-        #print(len(Xn))
-        #print(d)
-        #print(imagesNames)
-
         # training
         print('training')
         sclean = Bfs_clean(X, 1)
         Xclean = X[:, sclean]
         Xnclean = Xn[sclean]
-
-        #print(sclean)
-        #print(Xclean)
-        #print(Xnclean)
-
         Xtrain, dtrain, Xtest, dtest = Bds_nostratify(Xclean, d, 0.75)
-
         print(Xtrain.shape, Xtest.shape, dtrain.shape, dtest.shape)
-
-        #Xtrain = Xclean[: 85]
-        #Xntrain = Xnclean[: 85]
-        #dtrain = d[: 85]
 
         b = [
             {'name': 'lda', 'options': {'p': []}},
@@ -503,12 +344,6 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
         ]
         op = b
         struct = Bcl_structure(Xtrain, dtrain, op)
-
-        #Xtest = Xclean[85:]
-        #Xntest = Xnclean[85:]
-        #dtest = d[85:]
-
-        #print('testing')
 
         ds, _ = Bcl_structure(Xtest, struct)
         for i in range(len(op)):
@@ -552,7 +387,7 @@ path = 'imgs'
 pathSegmentation = 'our_segmentation'
 magic(imgPath=path,
       imgSegPath=pathSegmentation,
-      method='entropy',
+      method='color',
       segmentationProcess=True,
       featuresProcess=True,
-      trainAndTest=True)
+      trainAndTest=False)
