@@ -52,10 +52,10 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
 
     #Set a class to manage the whole dataset
     dataset = PH2Dataset('PH2Dataset')
-    #dataset.set_sample(percentage=0.1)
+    dataset.set_sample(percentage=0.1)
     #dataset.set_sample(image_indices=[0, 50, 2, 5, 198])
     #dataset.set_sample(image_names=['IMD169', 'IMD147', 'IMD425'])
-    dataset.exclude_from_sample(image_names=['IMD417'])
+    #dataset.exclude_from_sample(image_names=['IMD417'])
 
     if segmentationProcess or featuresProcess:
         print("{:10} {:20} {:20}".format('Imagen', 'MSE', 'JACCARD'))
@@ -157,7 +157,7 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
                     if len(Xn) == 0:
                         Xn = Xnstack
 
-                    print dataset.get_image_class(image_idx)
+                    print(dataset.get_image_class(image_idx))
                     d.extend([dataset.get_image_class(image_idx)])
                     imagesNames.extend([image])
 

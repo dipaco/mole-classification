@@ -84,7 +84,7 @@ class BaseDataset:
             image_idxs = kwargs['image_indices']
             self.__sample = [self.__image_list[i] for i in image_idxs]
         else:
-            print 'No samples was selected. All images will be used.'
+            print('No samples was selected. All images will be used.')
             self.reset_sample()
 
     def exclude_from_sample(self, **kwargs):
@@ -95,7 +95,7 @@ class BaseDataset:
             image_idxs = kwargs['image_indices']
             self.__sample = [self.__sample[i] for i in range(len(self.__sample)) if i not in image_idxs]
         else:
-            print 'No elements were excluded from the sample.'
+            print('No elements were excluded from the sample.')
 
     def get_image_data(self, idx_image):
         current_image = self.__sample[idx_image]
