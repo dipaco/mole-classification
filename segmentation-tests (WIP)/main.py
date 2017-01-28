@@ -133,7 +133,7 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
                     }
 
                     a, _ = histogram(np.round(rgb2gray(I.astype(float))))
-                    a /= a.sum()
+                    a = a / a.sum()
 
                     Xtmp = [entr(a).sum(axis=0)]
                     Xntmp = ['Entropy']
@@ -157,7 +157,7 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
                     if len(Xn) == 0:
                         Xn = Xnstack
 
-                    print(dataset.get_image_class(image_idx))
+                    #print(dataset.get_image_class(image_idx))
                     d.extend([dataset.get_image_class(image_idx)])
                     imagesNames.extend([image])
 
