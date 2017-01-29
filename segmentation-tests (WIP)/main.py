@@ -52,9 +52,9 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
 
     #Set a class to manage the whole dataset
     dataset = PH2Dataset('PH2Dataset')
-    dataset.set_sample(percentage=0.1)
+    #dataset.set_sample(percentage=0.1)
     #dataset.set_sample(image_indices=[0, 50, 2, 5, 198])
-    #dataset.set_sample(image_names=['IMD169', 'IMD147', 'IMD425'])
+    dataset.set_sample(image_names=['IMD155', 'IMD306', 'IMD382', 'IMD048', 'IMD347', 'IMD386', 'IMD103', 'IMD203', 'IMD312', 'IMD085', 'IMD424', 'IMD384', 'IMD037', 'IMD080', 'IMD369', 'IMD431', 'IMD339', 'IMD031', 'IMD108', 'IMD226'])
     #dataset.exclude_from_sample(image_names=['IMD417'])
 
     if segmentationProcess or featuresProcess:
@@ -90,12 +90,13 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
 
             else: #SEGMENTATION IS DONE AND SAVED
                 # reads the image information from the dataset
-                IOriginal = dataset.getImageData(image_idx)
+                IOriginal = dataset.get_image_data(image_idx)
                 #Gets the mask to avoid dark areas in segmentation
                 mask = get_mask(IOriginal.shape[0:2])
                 I = gray2rgb(mask) * IOriginal
                 GT = (rgb2gray(dataset.get_ground_truth_data(image_idx).astype(float)) * mask) > 120
-                Isegmented = rgb2gray(imread(pathSegmentation + '/' + image + '_our.png').astype(float)) > 120
+                Isegmented = rgb2gray(imread(pathSegmentation + '/' + image + '_our.png').astype(float)) > 0.5
+
 
             if featuresProcess:
                 if np.sum(Isegmented) > 0:
@@ -124,14 +125,6 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
                     Xstack.extend(Xtmp[0])
                     Xnstack.extend(Xntmp)
 
-                    options = {
-                        'weight': 0,  # Weigth of the histogram bins
-                        'vdiv': 1,  # one vertical divition
-                        'hdiv': 1,  # one horizontal divition
-                        'samples': 8,  # number of neighbor samples
-                        'mappingtype': 'nri_uniform'  # uniform LBP
-                    }
-
                     a, _ = histogram(np.round(rgb2gray(I.astype(float))))
                     a = a / a.sum()
 
@@ -151,6 +144,38 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
                     Xntmp = ['mean_red', 'mean_green', 'mean_blue']
 
                     Xstack.extend(Xtmp)
+                    Xnstack.extend(Xntmp)
+
+                    options = {
+                        'weight': 0,  # Weigth of the histogram bins
+                        'vdiv': 3,  # one vertical divition
+                        'hdiv': 3,  # one horizontal divition
+                        'samples': 8,  # number of neighbor samples
+                        'mappingtype': 'nri_uniform'  # uniform LBP
+                    }
+
+                    Xtmp, Xntmp = Bfx_lbp(I[:, :, 0], Isegmented, options)
+                    Xntmp = [name + '_red' for name in Xntmp]
+
+                    Xstack.extend(Xtmp[0])
+                    Xnstack.extend(Xntmp)
+
+                    Xtmp, Xntmp = Bfx_lbp(I[:, :, 1], Isegmented, options)
+                    Xntmp = [name + '_green' for name in Xntmp]
+
+                    Xstack.extend(Xtmp[0])
+                    Xnstack.extend(Xntmp)
+
+                    Xtmp, Xntmp = Bfx_lbp(I[:, :, 2], Isegmented, options)
+                    Xntmp = [name + '_blue' for name in Xntmp]
+
+                    Xstack.extend(Xtmp[0])
+                    Xnstack.extend(Xntmp)
+
+                    Xtmp, Xntmp = Bfx_lbp(rgb2gray(I), Isegmented, options)
+                    Xntmp = [name + '_gray' for name in Xntmp]
+
+                    Xstack.extend(Xtmp[0])
                     Xnstack.extend(Xntmp)
 
                     X.append(Xstack)
@@ -219,6 +244,6 @@ pathSegmentation = 'our_segmentation'
 magic(imgPath=path,
       imgSegPath=pathSegmentation,
       method='color',
-      segmentationProcess=True,
+      segmentationProcess=False,
       featuresProcess=True,
       trainAndTest=True)
