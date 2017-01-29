@@ -11,7 +11,7 @@ from matplotlib.image import imread
 from skimage.color import rgb2gray, label2rgb, gray2rgb
 from skimage.segmentation import slic, mark_boundaries
 from matplotlib.pyplot import show, imshow, subplot, figure, title, imsave, suptitle, colorbar
-from skimage.measure import label, compare_mse
+from skimage.measure import label, compare_mse, regionprops
 from balu.DataSelectionAndGeneration import Bds_nostratify
 import os
 import fnmatch
@@ -22,6 +22,7 @@ from scipy.io import savemat, loadmat
 from balu.FeatureSelection import Bfs_clean, Bfs_sfs
 from balu.Classification import Bcl_structure
 from balu.PerformanceEvaluation import Bev_performance, Bev_confusion
+from skimage.feature import multiblock_lbp
 
 #Segmentation
 from segmentation import segment
@@ -177,6 +178,34 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
 
                     Xstack.extend(Xtmp[0])
                     Xnstack.extend(Xntmp)
+
+                    ILabel = label(Isegmented)
+                    for region in regionprops(ILabel):
+                        minr, minc, maxr, maxc = region.bbox
+
+                    Xtmp = multiblock_lbp(I[:, :, 0], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_red'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    Xtmp = multiblock_lbp(I[:, :, 1], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_green'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    Xtmp = multiblock_lbp(I[:, :, 2], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_blue'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    Xtmp = multiblock_lbp(rgb2gray(I), minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_gray'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
 
                     X.append(Xstack)
                     if len(Xn) == 0:
