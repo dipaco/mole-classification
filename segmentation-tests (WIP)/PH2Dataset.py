@@ -51,7 +51,7 @@ class PH2Dataset(BaseDataset):
                                          image_folder_name + '_lesion.bmp')
 
             #image class
-            results = filter(lambda all_classes: all_classes['name'] == image_folder_name, classes)
+            results = list(filter(lambda all_classes: all_classes['name'] == image_folder_name, classes))
             if len(results) > 0:
                 c = results[0]['class']
             else:

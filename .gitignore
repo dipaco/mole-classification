@@ -1,0 +1,13 @@
+node_modules
+.DS_Store
+*.zip
+**/resultados.txt/**
+**/.idea/**
+**/imgs/**
+**/imgsGT/**
+**/our_segmentation/**
+**/balu/**
+**/PH2 Dataset images/**
+**/_pycache__/**
+**/PH2Dataset/**
+*.mat

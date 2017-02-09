@@ -11,7 +11,7 @@ from matplotlib.image import imread
 from skimage.color import rgb2gray, label2rgb, gray2rgb
 from skimage.segmentation import slic, mark_boundaries
 from matplotlib.pyplot import show, imshow, subplot, figure, title, imsave, suptitle, colorbar
-from skimage.measure import label, compare_mse
+from skimage.measure import label, compare_mse, regionprops
 from balu.DataSelectionAndGeneration import Bds_nostratify
 import os
 import fnmatch
@@ -22,6 +22,7 @@ from scipy.io import savemat, loadmat
 from balu.FeatureSelection import Bfs_clean, Bfs_sfs
 from balu.Classification import Bcl_structure
 from balu.PerformanceEvaluation import Bev_performance, Bev_confusion
+from skimage.feature import multiblock_lbp
 
 #Segmentation
 from segmentation import segment
@@ -51,11 +52,11 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
         imagesNames = []
 
     #Set a class to manage the whole dataset
-    dataset = PH2Dataset('PH2Dataset') #recibe la carpeta donde está el dataset (ruta)
-    #dataset.set_sample(percentage=0.05)
+    dataset = PH2Dataset('PH2Dataset')
+    #dataset.set_sample(percentage=0.1)
     #dataset.set_sample(image_indices=[0, 50, 2, 5, 198])
-    dataset.set_sample(image_names=['IMD204', 'IMD380', 'IMD135', 'IMD408', 'IMD003', 'IMD306', 'IMD080', 'IMD035', 'IMD103'])
-    dataset.exclude_from_sample(image_names=['IMD417'])
+    dataset.set_sample(image_names=['IMD155', 'IMD306', 'IMD382', 'IMD048', 'IMD347', 'IMD386', 'IMD103', 'IMD203', 'IMD312', 'IMD085', 'IMD424', 'IMD384', 'IMD037', 'IMD080', 'IMD369', 'IMD431', 'IMD339', 'IMD031', 'IMD108', 'IMD226'])
+    #dataset.exclude_from_sample(image_names=['IMD417'])
 
     if segmentationProcess or featuresProcess:
         print("{:10} {:20} {:20}".format('Imagen', 'MSE', 'JACCARD'))
@@ -86,7 +87,7 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
                 if not os.path.exists(pathSegmentation):
                     os.makedirs(pathSegmentation)
 
-                imsave(pathSegmentation + '/' + image + '_our.png', Isegmented.astype(int), cmap='gray')
+                imsave(pathSegmentation + '/' + image + '_our.png', 255*Isegmented.astype(int), cmap='gray')
 
             else: #SEGMENTATION IS DONE AND SAVED
                 # reads the image information from the dataset
@@ -95,7 +96,8 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
                 mask = get_mask(IOriginal.shape[0:2])
                 I = gray2rgb(mask) * IOriginal
                 GT = (rgb2gray(dataset.get_ground_truth_data(image_idx).astype(float)) * mask) > 120
-                Isegmented = rgb2gray(imread(pathSegmentation + '/' + image + '_our.png').astype(float))
+                Isegmented = rgb2gray(imread(pathSegmentation + '/' + image + '_our.png').astype(float)) > 0.5
+
 
             if featuresProcess:
                 if np.sum(Isegmented) > 0:
@@ -124,16 +126,8 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
                     Xstack.extend(Xtmp[0])
                     Xnstack.extend(Xntmp)
 
-                    options = {
-                        'weight': 0,  # Weigth of the histogram bins
-                        'vdiv': 1,  # one vertical divition
-                        'hdiv': 1,  # one horizontal divition
-                        'samples': 8,  # number of neighbor samples
-                        'mappingtype': 'nri_uniform'  # uniform LBP
-                    }
-
                     a, _ = histogram(np.round(rgb2gray(I.astype(float))))
-                    a /= a.sum()
+                    a = a / a.sum()
 
                     Xtmp = [entr(a).sum(axis=0)]
                     Xntmp = ['Entropy']
@@ -153,10 +147,71 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
                     Xstack.extend(Xtmp)
                     Xnstack.extend(Xntmp)
 
+                    options = {
+                        'weight': 0,  # Weigth of the histogram bins
+                        'vdiv': 3,  # one vertical divition
+                        'hdiv': 3,  # one horizontal divition
+                        'samples': 8,  # number of neighbor samples
+                        'mappingtype': 'nri_uniform'  # uniform LBP
+                    }
+
+                    Xtmp, Xntmp = Bfx_lbp(I[:, :, 0], Isegmented, options)
+                    Xntmp = [name + '_red' for name in Xntmp]
+
+                    Xstack.extend(Xtmp[0])
+                    Xnstack.extend(Xntmp)
+
+                    Xtmp, Xntmp = Bfx_lbp(I[:, :, 1], Isegmented, options)
+                    Xntmp = [name + '_green' for name in Xntmp]
+
+                    Xstack.extend(Xtmp[0])
+                    Xnstack.extend(Xntmp)
+
+                    Xtmp, Xntmp = Bfx_lbp(I[:, :, 2], Isegmented, options)
+                    Xntmp = [name + '_blue' for name in Xntmp]
+
+                    Xstack.extend(Xtmp[0])
+                    Xnstack.extend(Xntmp)
+
+                    Xtmp, Xntmp = Bfx_lbp(rgb2gray(I), Isegmented, options)
+                    Xntmp = [name + '_gray' for name in Xntmp]
+
+                    Xstack.extend(Xtmp[0])
+                    Xnstack.extend(Xntmp)
+
+                    ILabel = label(Isegmented)
+                    for region in regionprops(ILabel):
+                        minr, minc, maxr, maxc = region.bbox
+
+                    Xtmp = multiblock_lbp(I[:, :, 0], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_red'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    Xtmp = multiblock_lbp(I[:, :, 1], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_green'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    Xtmp = multiblock_lbp(I[:, :, 2], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_blue'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    Xtmp = multiblock_lbp(rgb2gray(I), minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_gray'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
                     X.append(Xstack)
                     if len(Xn) == 0:
                         Xn = Xnstack
 
+                    #print(dataset.get_image_class(image_idx))
                     d.extend([dataset.get_image_class(image_idx)])
                     imagesNames.extend([image])
 
@@ -187,7 +242,6 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
         Xnclean = Xn[sclean]
         Xtrain, dtrain, Xtest, dtest = Bds_nostratify(Xclean, d, 0.9)
 
-
         b = [
             {'name': 'lda', 'options': {'p': []}},
             {'name': 'maha', 'options': {}},
@@ -195,7 +249,6 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
             {'name': 'svm', 'options': {'kernel': 1}},
             {'name': 'svm', 'options': {'kernel': 2}},
             {'name': 'knn', 'options': {'k': 5}},
-            {'name': 'nn', 'options': {'method': 1, 'iter': 15}}
             {'name': 'nn', 'options': {'method': 1, 'iter': 15}}
         ]
         op = b
@@ -221,5 +274,5 @@ magic(imgPath=path,
       imgSegPath=pathSegmentation,
       method='color',
       segmentationProcess=False,
-      featuresProcess=False,
+      featuresProcess=True,
       trainAndTest=True)
