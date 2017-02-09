@@ -61,7 +61,8 @@ class PH2Dataset(BaseDataset):
                 'image_filename': filename,
                 'imageName': image_folder_name,
                 'ground_truth_filename': ground_truth_filename,
-                'class': c
+                'class': c,
+                'labels': ['', ''] #TODO: llenar esto
             })
 
         return image_list
@@ -73,7 +74,7 @@ class PH2Dataset(BaseDataset):
         return True
 
     def has_labels(self):
-        return False
+        return True
 
     def has_ground_truth(self):
         return True

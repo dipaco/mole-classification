@@ -10,12 +10,13 @@ from PH2Dataset import PH2Dataset
 from matplotlib.image import imread
 from skimage.color import rgb2gray, label2rgb, gray2rgb
 from skimage.segmentation import slic, mark_boundaries
-from matplotlib.pyplot import show, imshow, subplot, figure, title, imsave, suptitle, colorbar
+from matplotlib.pyplot import show, imshow, subplot, figure, title, imsave, suptitle, colorbar, savefig
 from skimage.measure import label, compare_mse, regionprops
 from balu.DataSelectionAndGeneration import Bds_nostratify
 import os
 import fnmatch
 from balu.FeatureExtraction import Bfx_haralick, Bfx_geo, Bfx_basicgeo, Bfx_lbp
+from balu.InputOutput import Bio_plotfeatures
 from skimage.exposure import histogram
 from scipy.special import entr
 from scipy.io import savemat, loadmat
@@ -29,7 +30,7 @@ from segmentation import segment
 from utils import get_mask, compare_jaccard
 
 
-def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, featuresProcess=True, trainAndTest=True):
+def magic(imgPath, imgResults, method='color', segmentationProcess=True, featuresProcess=True, trainAndTest=True):
     """
     :param imgPath:
     :param imgSegPath:
@@ -41,7 +42,8 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
     """
 
     path = imgPath
-    pathSegmentation = imgSegPath
+    pathSegmentation = os.path.join(imgResults, 'our_segmentation')
+    pathResults = os.path.join(imgResults, 'figures')
     all_mse = []
     all_jaccard = []
 
@@ -55,8 +57,9 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
     dataset = PH2Dataset('PH2Dataset')
     #dataset.set_sample(percentage=0.1)
     #dataset.set_sample(image_indices=[0, 50, 2, 5, 198])
-    dataset.set_sample(image_names=['IMD155', 'IMD306', 'IMD382', 'IMD048', 'IMD347', 'IMD386', 'IMD103', 'IMD203', 'IMD312', 'IMD085', 'IMD424', 'IMD384', 'IMD037', 'IMD080', 'IMD369', 'IMD431', 'IMD339', 'IMD031', 'IMD108', 'IMD226'])
+    #dataset.set_sample(image_names=['IMD155', 'IMD306', 'IMD382', 'IMD048', 'IMD347', 'IMD386', 'IMD103', 'IMD203', 'IMD312', 'IMD085', 'IMD424', 'IMD384', 'IMD037', 'IMD080', 'IMD369', 'IMD431', 'IMD339', 'IMD031', 'IMD108', 'IMD226'])
     #dataset.exclude_from_sample(image_names=['IMD417'])
+    dataset.exclude_from_sample(image_names=['IMG006', 'IMD008', 'IMD009', 'IMD014', 'IMD019', 'IMD023', 'IMD024', 'IMD032', 'IMD033', 'IMD035', 'IMD037', 'IMD048', 'IMD049', 'IMD058', 'IMD061', 'IMD064', 'IMD085', 'IMD088', 'IMD090', 'IMD091', 'IMD101', 'IMD105', 'IMD112', 'IMD118', 'IMD126', 'IMD135', 'IMD137', 'IMD138', 'IMD147', 'IMD152', 'IMD153', 'IMD154', 'IMD155', 'IMD157', 'IMD159', 'IMD160', 'IMD166', 'IMD168', 'IMD170', 'IMD177', 'IMD182', 'IMD196', 'IMD198', 'IMD200', 'IMD207', 'IMD208', 'IMD219', 'IMD240', 'IMD251', 'IMD254', 'IMD278', 'IMD279', 'IMD280', 'IMD284', 'IMD304', 'IMD339', 'IMD349', 'IMD356', 'IMD360', 'IMD364', 'IMD367', 'IMD368', 'IMD371', 'IMD372', 'IMD375', 'IMD378', 'IMD381', 'IMD382', 'IMD388', 'IMD390', 'IMD397', 'IMD398', 'IMD400', 'IMD403', 'IMD404', 'IMD405', 'IMD406', 'IMD407', 'IMD408', 'IMD409', 'IMD410', 'IMD411', 'IMD413', 'IMD417', 'IMD419', 'IMD420', 'IMD421', 'IMD424', 'IMD425', 'IMD426', 'IMD427', 'IMD430', 'IMD431', 'IMD432', 'IMD433', 'IMD435', 'IMD436'])
 
     if segmentationProcess or featuresProcess:
         print("{:10} {:20} {:20}".format('Imagen', 'MSE', 'JACCARD'))
@@ -86,6 +89,18 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
 
                 if not os.path.exists(pathSegmentation):
                     os.makedirs(pathSegmentation)
+
+                subplot(1, 3, 1)
+                title('Original')
+                imshow(IOriginal)
+                subplot(1, 3, 2)
+                title('Ground Truth')
+                imshow(GT, cmap='gray')
+                subplot(1, 3, 3)
+                title('Our Seg.')
+                imshow(Isegmented, cmap='gray')
+                savefig(pathResults + '/' + image + '_our.png')
+
 
                 imsave(pathSegmentation + '/' + image + '_our.png', 255*Isegmented.astype(int), cmap='gray')
 
@@ -240,7 +255,24 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
         sclean = Bfs_clean(X, 1)
         Xclean = X[:, sclean]
         Xnclean = Xn[sclean]
-        Xtrain, dtrain, Xtest, dtest = Bds_nostratify(Xclean, d, 0.9)
+        #d = (d > 1).astype(int) + 1
+        print (Xnclean)
+        Xtrain, dtrain, Xtest, dtest = Bds_nostratify(Xclean, d, 0.6)
+
+
+        op = {
+            'm': 10,  # 10 features will be selected
+            'show': True,  # display results
+            'b': {'name': 'svm', 'options': {'kernel': 2}}  # SFS with Fisher
+        }
+        s = Bfs_sfs(Xtrain, dtrain, op)  # index of selected features
+        Xtrain = Xtrain[:, s]  # selected features
+        Xtest = Xtest[:, s]
+        Xn = Xnclean[s]  # list of feature names
+
+        '''Xtrain = Xtrain[:, [51, 27]]
+        Xtest = Xtest[:, [51, 27]]
+        #Bio_plotfeatures(Xtrain, dtrain)'''
 
         b = [
             {'name': 'lda', 'options': {'p': []}},
@@ -249,6 +281,7 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
             {'name': 'svm', 'options': {'kernel': 1}},
             {'name': 'svm', 'options': {'kernel': 2}},
             {'name': 'knn', 'options': {'k': 5}},
+            {'name': 'knn', 'options': {'k': 7}},
             {'name': 'nn', 'options': {'method': 1, 'iter': 15}}
         ]
         op = b
@@ -269,10 +302,10 @@ Clinical Diagnosis:
 '''
 
 path = 'imgs'
-pathSegmentation = 'our_segmentation'
+pathSegmentation = 'results'
 magic(imgPath=path,
-      imgSegPath=pathSegmentation,
+      imgResults=pathSegmentation,
       method='color',
       segmentationProcess=False,
-      featuresProcess=True,
+      featuresProcess=False,
       trainAndTest=True)
