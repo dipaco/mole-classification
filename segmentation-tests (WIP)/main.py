@@ -51,10 +51,10 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
         imagesNames = []
 
     #Set a class to manage the whole dataset
-    dataset = PH2Dataset('PH2Dataset')
-    #dataset.set_sample(percentage=0.1)
+    dataset = PH2Dataset('PH2Dataset') #recibe la carpeta donde está el dataset (ruta)
+    #dataset.set_sample(percentage=0.05)
     #dataset.set_sample(image_indices=[0, 50, 2, 5, 198])
-    #dataset.set_sample(image_names=['IMD169', 'IMD147', 'IMD425'])
+    dataset.set_sample(image_names=['IMD204', 'IMD380', 'IMD135', 'IMD408', 'IMD003', 'IMD306', 'IMD080', 'IMD035', 'IMD103'])
     dataset.exclude_from_sample(image_names=['IMD417'])
 
     if segmentationProcess or featuresProcess:
@@ -86,16 +86,16 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
                 if not os.path.exists(pathSegmentation):
                     os.makedirs(pathSegmentation)
 
-                imsave(pathSegmentation + '/' + image + '_our.png', 255*Isegmented.astype(int), cmap='gray')
+                imsave(pathSegmentation + '/' + image + '_our.png', Isegmented.astype(int), cmap='gray')
 
             else: #SEGMENTATION IS DONE AND SAVED
                 # reads the image information from the dataset
-                IOriginal = dataset.getImageData(image_idx)
+                IOriginal = dataset.get_image_data(image_idx)
                 #Gets the mask to avoid dark areas in segmentation
                 mask = get_mask(IOriginal.shape[0:2])
                 I = gray2rgb(mask) * IOriginal
                 GT = (rgb2gray(dataset.get_ground_truth_data(image_idx).astype(float)) * mask) > 120
-                Isegmented = rgb2gray(imread(pathSegmentation + '/' + image + '_our.png').astype(float)) > 120
+                Isegmented = rgb2gray(imread(pathSegmentation + '/' + image + '_our.png').astype(float))
 
             if featuresProcess:
                 if np.sum(Isegmented) > 0:
@@ -157,7 +157,6 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
                     if len(Xn) == 0:
                         Xn = Xnstack
 
-                    print dataset.get_image_class(image_idx)
                     d.extend([dataset.get_image_class(image_idx)])
                     imagesNames.extend([image])
 
@@ -188,6 +187,7 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
         Xnclean = Xn[sclean]
         Xtrain, dtrain, Xtest, dtest = Bds_nostratify(Xclean, d, 0.9)
 
+
         b = [
             {'name': 'lda', 'options': {'p': []}},
             {'name': 'maha', 'options': {}},
@@ -195,6 +195,7 @@ def magic(imgPath, imgSegPath, method='color', segmentationProcess=True, feature
             {'name': 'svm', 'options': {'kernel': 1}},
             {'name': 'svm', 'options': {'kernel': 2}},
             {'name': 'knn', 'options': {'k': 5}},
+            {'name': 'nn', 'options': {'method': 1, 'iter': 15}}
             {'name': 'nn', 'options': {'method': 1, 'iter': 15}}
         ]
         op = b
@@ -219,6 +220,6 @@ pathSegmentation = 'our_segmentation'
 magic(imgPath=path,
       imgSegPath=pathSegmentation,
       method='color',
-      segmentationProcess=True,
-      featuresProcess=True,
+      segmentationProcess=False,
+      featuresProcess=False,
       trainAndTest=True)
