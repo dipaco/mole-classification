@@ -78,7 +78,7 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
 
                 #Segment the each mole
                 print('Segmenting image {0} ({1} / {2})'.format(dataset.image_names[image_idx], image_idx + 1, dataset.num_images))
-                Isegmented = segment(I, mask, method=method)
+                Isegmented, Islic, Islic2 = segment(I, mask, method=method)
 
                 auxmse = compare_mse(GT, Isegmented)
                 all_mse.append(auxmse)
@@ -89,16 +89,24 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
 
                 if not os.path.exists(pathSegmentation):
                     os.makedirs(pathSegmentation)
+                if not os.path.exists(pathResults):
+                    os.makedirs(pathResults)
 
-                subplot(1, 3, 1)
+                subplot(2, 3, 1)
                 title('Original')
                 imshow(IOriginal)
-                subplot(1, 3, 2)
+                subplot(2, 3, 2)
                 title('Ground Truth')
                 imshow(GT, cmap='gray')
-                subplot(1, 3, 3)
-                title('Our Seg.')
+                subplot(2, 3, 3)
+                title('Our Segmentation')
                 imshow(Isegmented, cmap='gray')
+                subplot(2, 3, 4)
+                title('SuperPixels')
+                imshow(Islic)
+                subplot(2, 3, 5)
+                title('Merged SuperPixels')
+                imshow(Islic2)
                 savefig(pathResults + '/' + image + '_our.png')
 
 
@@ -261,14 +269,14 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
 
 
         op = {
-            'm': 10,  # 10 features will be selected
-            'show': True,  # display results
-            'b': {'name': 'svm', 'options': {'kernel': 2}}  # SFS with Fisher
+            'm': 10,
+            'show': True,
+            'b': {'name': 'svm', 'options': {'kernel': 2}}
         }
-        s = Bfs_sfs(Xtrain, dtrain, op)  # index of selected features
-        Xtrain = Xtrain[:, s]  # selected features
+        s = Bfs_sfs(Xtrain, dtrain, op)
+        Xtrain = Xtrain[:, s]
         Xtest = Xtest[:, s]
-        Xn = Xnclean[s]  # list of feature names
+        Xn = Xnclean[s]
 
         '''Xtrain = Xtrain[:, [51, 27]]
         Xtest = Xtest[:, [51, 27]]
@@ -306,6 +314,6 @@ pathSegmentation = 'results'
 magic(imgPath=path,
       imgResults=pathSegmentation,
       method='color',
-      segmentationProcess=False,
+      segmentationProcess=True,
       featuresProcess=False,
-      trainAndTest=True)
+      trainAndTest=False)

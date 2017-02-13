@@ -6,7 +6,7 @@ from skimage.color import rgb2gray
 from skimage.measure import regionprops
 from skimage.segmentation import slic, mark_boundaries
 from skimage.filters import threshold_otsu
-from skimage.morphology import label, closing, disk
+from skimage.morphology import label, closing, disk, dilation
 from future import graph
 from balu.FeatureExtraction import Bfx_haralick
 from balu.FeatureAnalysis import Bfa_jfisher
@@ -234,4 +234,5 @@ def segment(I, mask, method):
 
     Isegmented = slabel == iMax
     Isegmented = binary_fill_holes(Isegmented)
-    return Isegmented
+    Isegmented = dilation(Isegmented, selem=disk(8))
+    return Isegmented, Islic, Islic2

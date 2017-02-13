@@ -3,9 +3,7 @@ node_modules
 *.zip
 **/resultados.txt/**
 **/.idea/**
-**/imgs/**
-**/imgsGT/**
-**/our_segmentation/**
+**/results/**
 **/balu/**
 **/PH2 Dataset images/**
 **/_pycache__/**
