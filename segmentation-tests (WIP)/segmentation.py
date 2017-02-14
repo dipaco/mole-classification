@@ -6,7 +6,9 @@ from skimage.color import rgb2gray
 from skimage.measure import regionprops
 from skimage.segmentation import slic, mark_boundaries
 from skimage.filters import threshold_otsu
-from skimage.morphology import label, closing, disk, dilation
+from skimage.morphology import label, closing, disk, dilation, erosion, square
+from skimage.feature import canny
+from skimage.exposure import equalize_hist, rescale_intensity, equalize_adapthist
 from future import graph
 from balu.FeatureExtraction import Bfx_haralick
 from balu.FeatureAnalysis import Bfa_jfisher
@@ -201,6 +203,8 @@ def segment(I, mask, method):
     L2label = label(L2)
 
     IGray = rgb2gray(I)  # * mask
+    ICanny = dilation(np.logical_and(canny(IGray, sigma=2), erosion(mask, disk(3))), disk(3))
+    #IGray = equalize_adapthist(IGray)
     thresh = threshold_otsu(IGray)
     IOtsu = IGray <= thresh
     IOtsu = np.logical_and(IOtsu, mask)
@@ -212,17 +216,42 @@ def segment(I, mask, method):
     # imshow(lc2, cmap='gray')
     # show()
 
+    Isegmented = max_jaccard_criterion(IOtsu, L2label, mask)
+    #Isegmented = edge_support_criterion(ICanny, L2label)
+    return Isegmented, Islic, Islic2, IOtsu
+
+
+def edge_support_criterion(edges, labels):
+
+    F = np.zeros_like(edges)
+    for i in range(0, labels.max() + 1):
+        l = binary_fill_holes(labels == i)
+        perimeter = l - erosion(l, square(3))
+        '''imshow(l, cmap='gray')
+        figure()
+        imshow(perimeter, cmap='gray')
+        figure()
+        imshow(np.logical_and(perimeter, edges), cmap='gray')
+        show()'''
+        c = np.logical_and(perimeter, edges).sum() / float(perimeter.sum())
+        if c > 0.5:
+            F = np.logical_or(F, l)
+
+        #F = binary_fill_holes(F)
+        #F = dilation(F, selem=disk(8))
+    return F
+
+
+def max_jaccard_criterion(IOtsu, L2label, mask):
     J = np.zeros(L2label.max() + 1)
     for i in range(0, L2label.max() + 1):
         lbl = np.logical_and((L2label == i), mask)
         lbl = binary_fill_holes(lbl)
         jaccard = compare_jaccard(IOtsu, lbl)
         J[i] = jaccard
-
     sMask = np.logical_and((L2label == np.argmax(J)), mask)
     sMask = closing(sMask, selem=disk(3))
     slabel = label(sMask)
-
     # Calculates the area of each label to select the one with the
     # máximum área
     max = 0
@@ -231,8 +260,9 @@ def segment(I, mask, method):
         if np.sum(slabel == i) > max:
             max = np.sum(slabel == i)
             iMax = i
-
     Isegmented = slabel == iMax
     Isegmented = binary_fill_holes(Isegmented)
     Isegmented = dilation(Isegmented, selem=disk(8))
-    return Isegmented, Islic, Islic2
+    return Isegmented
+
+
