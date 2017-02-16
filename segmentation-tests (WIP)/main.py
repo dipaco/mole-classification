@@ -8,7 +8,7 @@ Requeriments:
 import numpy as np
 from PH2Dataset import PH2Dataset
 from matplotlib.image import imread
-from skimage.color import rgb2gray, label2rgb, gray2rgb
+from skimage.color import rgb2gray, label2rgb, gray2rgb, rgb2lab
 from skimage.segmentation import slic, mark_boundaries
 from matplotlib.pyplot import show, imshow, subplot, figure, title, imsave, suptitle, colorbar, savefig
 from skimage.measure import label, compare_mse, regionprops
@@ -131,6 +131,11 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
                 if np.sum(Isegmented) > 0:
                     print('Extracting feature to image {0} ({1} / {2})'.format(dataset.image_names[image_idx], image_idx + 1,
                                                                     dataset.num_images))
+                    Ilab = rgb2lab(I)
+                    Ilab[:, :, 0] *= 2.55
+                    Ilab[:, :, 1] += 127
+                    Ilab[:, :, 2] += 128
+
                     Xstack = []
                     Xnstack = []
 
@@ -145,11 +150,29 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
                     Xstack.extend(Xtmp[0])
                     Xnstack.extend(Xntmp)
 
-                    options = {'dharalick': 3}  # 3 pixels distance for coocurrence
+                    options = {'dharalick': [3, 6, 12, 24]}  # # pixels distance for coocurrence
 
                     J = rgb2gray(I.astype(float))
                     Xtmp, Xntmp = Bfx_haralick(J, Isegmented, options)  # Haralick features
                     Xntmp = [name + '_gray' for name in Xntmp]
+
+                    Xstack.extend(Xtmp[0])
+                    Xnstack.extend(Xntmp)
+
+                    Xtmp, Xntmp = Bfx_haralick(Ilab[:, :, 0], Isegmented, options)  # Haralick features
+                    Xntmp = [name + '_L*' for name in Xntmp]
+
+                    Xstack.extend(Xtmp[0])
+                    Xnstack.extend(Xntmp)
+
+                    Xtmp, Xntmp = Bfx_haralick(Ilab[:, :, 1], Isegmented, options)  # Haralick features
+                    Xntmp = [name + '_A*' for name in Xntmp]
+
+                    Xstack.extend(Xtmp[0])
+                    Xnstack.extend(Xntmp)
+
+                    Xtmp, Xntmp = Bfx_haralick(Ilab[:, :, 2], Isegmented, options)  # Haralick features
+                    Xntmp = [name + '_B*' for name in Xntmp]
 
                     Xstack.extend(Xtmp[0])
                     Xnstack.extend(Xntmp)
@@ -171,6 +194,19 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
 
                     Xtmp = [mean_red / count, mean_green / count, mean_blue / count]
                     Xntmp = ['mean_red', 'mean_green', 'mean_blue']
+
+                    Xstack.extend(Xtmp)
+                    Xnstack.extend(Xntmp)
+
+                    Xstack.extend(Xtmp)
+                    Xnstack.extend(Xntmp)
+
+                    mean_l = np.sum(Ilab[:, :, 0])
+                    mean_a = np.sum(Ilab[:, :, 1])
+                    mean_b = np.sum(Ilab[:, :, 2])
+
+                    Xtmp = [mean_l / count, mean_a / count, mean_b / count]
+                    Xntmp = ['mean_l', 'mean_a', 'mean_b']
 
                     Xstack.extend(Xtmp)
                     Xnstack.extend(Xntmp)
