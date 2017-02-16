@@ -25,6 +25,7 @@ from balu.FeatureSelection import Bfs_clean, Bfs_sfs
 from balu.Classification import Bcl_structure
 from balu.PerformanceEvaluation import Bev_performance, Bev_confusion
 from skimage.feature import multiblock_lbp
+from skimage.transform import rescale
 
 #Segmentation
 from segmentation import segment
@@ -136,6 +137,15 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
                     Ilab[:, :, 1] += 127
                     Ilab[:, :, 2] += 128
 
+                    I05 = rescale(I, 0.5)
+                    I025 = rescale(I, 0.25)
+                    I0125 = rescale(I, 0.125)
+                    Ilab05 = rescale(Ilab, 0.5)
+                    Ilab025 = rescale(Ilab, 0.25)
+                    Ilab0125 = rescale(Ilab, 0.125)
+                    Isegmented05 = rescale(Isegmented, 0.5)
+                    Isegmented025 = rescale(Isegmented, 0.25)
+                    Isegmented0125 = rescale(Isegmented, 0.125)
                     Xstack = []
                     Xnstack = []
 
@@ -150,8 +160,8 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
                     Xstack.extend(Xtmp[0])
                     Xnstack.extend(Xntmp)
 
-                    options = {'dharalick': [3, 6, 12, 24]}  # # pixels distance for coocurrence
-
+                    #options = {'dharalick': [3, 6, 12, 24]}  # # pixels distance for coocurrence
+                    options = {'dharalick': 3}  # 3 pixels distance for coocurrence
                     J = rgb2gray(I.astype(float))
                     Xtmp, Xntmp = Bfx_haralick(J, Isegmented, options)  # Haralick features
                     Xntmp = [name + '_gray' for name in Xntmp]
@@ -212,61 +222,247 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
                     Xnstack.extend(Xntmp)
 
                     options = {
-                        'weight': 0,  # Weigth of the histogram bins
-                        'vdiv': 3,  # one vertical divition
-                        'hdiv': 3,  # one horizontal divition
-                        'samples': 8,  # number of neighbor samples
-                        'mappingtype': 'nri_uniform'  # uniform LBP
+                        'weight': 0,
+                        'vdiv': 3,
+                        'hdiv': 3,
+                        'samples': 8,
+                        'mappingtype': 'nri_uniform'
                     }
 
                     Xtmp, Xntmp = Bfx_lbp(I[:, :, 0], Isegmented, options)
-                    Xntmp = [name + '_red' for name in Xntmp]
+                    Xntmp = [name + '_red_normal' for name in Xntmp]
 
                     Xstack.extend(Xtmp[0])
                     Xnstack.extend(Xntmp)
 
                     Xtmp, Xntmp = Bfx_lbp(I[:, :, 1], Isegmented, options)
-                    Xntmp = [name + '_green' for name in Xntmp]
+                    Xntmp = [name + '_green_normal' for name in Xntmp]
 
                     Xstack.extend(Xtmp[0])
                     Xnstack.extend(Xntmp)
 
                     Xtmp, Xntmp = Bfx_lbp(I[:, :, 2], Isegmented, options)
-                    Xntmp = [name + '_blue' for name in Xntmp]
+                    Xntmp = [name + '_blue_normal' for name in Xntmp]
 
                     Xstack.extend(Xtmp[0])
                     Xnstack.extend(Xntmp)
 
                     Xtmp, Xntmp = Bfx_lbp(rgb2gray(I), Isegmented, options)
-                    Xntmp = [name + '_gray' for name in Xntmp]
+                    Xntmp = [name + '_gray_normal' for name in Xntmp]
 
                     Xstack.extend(Xtmp[0])
                     Xnstack.extend(Xntmp)
 
+                    Xtmp, Xntmp = Bfx_lbp(Ilab[:, :, 0], Isegmented, options)
+                    Xntmp = [name + '_L*_normal' for name in Xntmp]
+
+                    Xstack.extend(Xtmp[0])
+                    Xnstack.extend(Xntmp)
+
+                    Xtmp, Xntmp = Bfx_lbp(Ilab[:, :, 1], Isegmented, options)
+                    Xntmp = [name + '_A*_normal' for name in Xntmp]
+
+                    Xstack.extend(Xtmp[0])
+                    Xnstack.extend(Xntmp)
+
+                    Xtmp, Xntmp = Bfx_lbp(Ilab[:, :, 2], Isegmented, options)
+                    Xntmp = [name + '_B*_normal' for name in Xntmp]
+
+                    Xstack.extend(Xtmp[0])
+                    Xnstack.extend(Xntmp)
+
+                    # Multiblock_LBP - RGB - normal
                     ILabel = label(Isegmented)
                     for region in regionprops(ILabel):
                         minr, minc, maxr, maxc = region.bbox
 
                     Xtmp = multiblock_lbp(I[:, :, 0], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
-                    Xntmp = 'multiblock_lbp_red'
+                    Xntmp = 'multiblock_lbp_red_normal'
 
                     Xstack.extend([Xtmp])
                     Xnstack.extend([Xntmp])
 
                     Xtmp = multiblock_lbp(I[:, :, 1], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
-                    Xntmp = 'multiblock_lbp_green'
+                    Xntmp = 'multiblock_lbp_green_normal'
 
                     Xstack.extend([Xtmp])
                     Xnstack.extend([Xntmp])
 
                     Xtmp = multiblock_lbp(I[:, :, 2], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
-                    Xntmp = 'multiblock_lbp_blue'
+                    Xntmp = 'multiblock_lbp_blue_normal'
 
                     Xstack.extend([Xtmp])
                     Xnstack.extend([Xntmp])
 
+                    # Multiblock_LBP - Gray - normal
                     Xtmp = multiblock_lbp(rgb2gray(I), minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
-                    Xntmp = 'multiblock_lbp_gray'
+                    Xntmp = 'multiblock_lbp_gray_normal'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    # Multiblock_LBP - LBP - normal
+                    Xtmp = multiblock_lbp(Ilab[:, :, 0], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_L*_normal'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    Xtmp = multiblock_lbp(Ilab[:, :, 1], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_A*_normal'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    Xtmp = multiblock_lbp(Ilab[:, :, 2], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_B*_normal'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    # Multiblock_LBP - RGB - 0.5
+                    ILabel = label(Isegmented05)
+                    for region in regionprops(ILabel):
+                        minr, minc, maxr, maxc = region.bbox
+
+                    Xtmp = multiblock_lbp(I05[:, :, 0], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_red_0.5'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    Xtmp = multiblock_lbp(I05[:, :, 1], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_green_0.5'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    Xtmp = multiblock_lbp(I05[:, :, 2], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_blue_0.5'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    # Multiblock_LBP - Gray - normal
+                    Xtmp = multiblock_lbp(rgb2gray(I05), minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_gray_0.5'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    # Multiblock_LBP - LBP - normal
+                    Xtmp = multiblock_lbp(Ilab05[:, :, 0], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_L*_0.5'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    Xtmp = multiblock_lbp(Ilab05[:, :, 1], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_A*_0.5'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    Xtmp = multiblock_lbp(Ilab05[:, :, 2], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_B*_0.5'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    # Multiblock_LBP - RGB - 0.25
+                    ILabel = label(Isegmented025)
+                    for region in regionprops(ILabel):
+                        minr, minc, maxr, maxc = region.bbox
+
+                    Xtmp = multiblock_lbp(I025[:, :, 0], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_red_0.25'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    Xtmp = multiblock_lbp(I025[:, :, 1], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_green_0.25'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    Xtmp = multiblock_lbp(I025[:, :, 2], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_blue_0.25'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    # Multiblock_LBP - Gray - normal
+                    Xtmp = multiblock_lbp(rgb2gray(I025), minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_gray_0.25'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    # Multiblock_LBP - LBP - normal
+                    Xtmp = multiblock_lbp(Ilab025[:, :, 0], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_L*_0.25'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    Xtmp = multiblock_lbp(Ilab025[:, :, 1], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_A*_0.25'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    Xtmp = multiblock_lbp(Ilab025[:, :, 2], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_B*_0.25'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    # Multiblock_LBP - RGB - 0.125
+                    ILabel = label(Isegmented0125)
+                    for region in regionprops(ILabel):
+                        minr, minc, maxr, maxc = region.bbox
+
+                    Xtmp = multiblock_lbp(I0125[:, :, 0], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_red_0.125'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    Xtmp = multiblock_lbp(I0125[:, :, 1], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_green_0.125'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    Xtmp = multiblock_lbp(I0125[:, :, 2], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_blue_0.125'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    # Multiblock_LBP - Gray - normal
+                    Xtmp = multiblock_lbp(rgb2gray(I0125), minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_gray_0.125'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    # Multiblock_LBP - LBP - normal
+                    Xtmp = multiblock_lbp(Ilab0125[:, :, 0], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_L*_0.125'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    Xtmp = multiblock_lbp(Ilab0125[:, :, 1], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_A*_0.125'
+
+                    Xstack.extend([Xtmp])
+                    Xnstack.extend([Xntmp])
+
+                    Xtmp = multiblock_lbp(Ilab0125[:, :, 2], minr, minc, int((maxc - minc) / 3), int((maxr - minr) / 3))
+                    Xntmp = 'multiblock_lbp_B*_0.125'
 
                     Xstack.extend([Xtmp])
                     Xnstack.extend([Xntmp])
