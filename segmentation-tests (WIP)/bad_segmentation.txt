@@ -2,3 +2,5 @@
 
 #BAD GROUND TRUTH
 ['IMD240', 'IMD411', 'IMD413', 'IMD417', 'IMD424', 'IMD425']
+
+'''IMD014 debería ser segmentada en varios pesados pero nuestra técnica solo es capaz de segmentar un lunar homogeneo a la vez'''

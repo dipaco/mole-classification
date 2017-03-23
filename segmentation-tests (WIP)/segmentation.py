@@ -3,17 +3,19 @@ import numpy as np
 from scipy.stats import entropy
 from scipy.ndimage.morphology import binary_fill_holes
 from skimage.color import rgb2gray
+import cv2
 from skimage.measure import regionprops
-from skimage.segmentation import slic, mark_boundaries
+from skimage.segmentation import slic, mark_boundaries, relabel_sequential
 from skimage.filters import threshold_otsu
-from skimage.morphology import label, closing, disk, dilation, erosion, square
+from skimage.filters.rank import entropy as local_entropy
+from skimage.morphology import label, closing, disk, dilation, erosion, square, remove_small_objects
 from skimage.feature import canny
 from skimage.exposure import equalize_hist, rescale_intensity, equalize_adapthist
 from future import graph
-from balu.FeatureExtraction import Bfx_haralick
+from balu.FeatureExtraction import Bfx_haralick, Bfx_lbp
 from balu.FeatureAnalysis import Bfa_jfisher
 from utils import compare_jaccard
-from matplotlib.pyplot import imshow, show, figure, subplot
+from matplotlib.pyplot import imshow, show, figure, subplot, colorbar
 
 
 def entropy_rag(graph, labels, image,
@@ -28,7 +30,7 @@ def entropy_rag(graph, labels, image,
         if pixels.size == 0:
             ent = np.float64(0.0)
         else:
-            ent = entropy(hist)
+            ent = entropy(hist, qk=None)
 
         if np.isinf(ent) or np.isneginf(ent):
             ent = np.float64(0.0)
@@ -172,30 +174,73 @@ def merge_mean_color(graph, src, dst, image, labels):
 def segment(I, mask, method):
 
     # n_segments sujeto a cambios para optimización de la segmentación
-    L = slic(I, n_segments=400)
+    L = slic(I, n_segments=400) * mask
     Islic = mark_boundaries(I, L)
 
-    if method == 'color':
-        g = graph.rag_mean_color(I, L)
-        # lc = graph.draw_rag(L, g, Islic)
-        L2 = graph.merge_hierarchical(L, g, thresh=50, rag_copy=False,
-                                      in_place_merge=True,
-                                      merge_func=merge_mean_color,
-                                      weight_func=_weight_mean_color)
-    elif method == 'entropy':
-        g = graph.region_adjacency_graph(L, image=I, describe_func=entropy_rag)
-        L2 = graph.merge_hierarchical(L, g, thresh=0.3, rag_copy=False,
-                                      in_place_merge=True,
-                                      merge_func=merge_entropy,
-                                      weight_func=_weight_entropy,
-                                      image=I)
-    elif method == 'haralick':
-        g = graph.region_adjacency_graph(L, image=I, describe_func=haralick_rag)
-        L2 = graph.merge_hierarchical(L, g, thresh=150, rag_copy=False,
-                                      in_place_merge=True,
-                                      merge_func=merge_haralick,
-                                      weight_func=_weight_haralick,
-                                      image=I)
+    '''RECOMENDED THRESHOLDS BY METHOD:
+        color_thresh = 1000
+        entropy_thresh = 0.6
+        haralick_thres = 300
+    '''
+
+    # Merge superpixels until get just 2 (lession and background) or until
+    # convergence criterion is reached
+    a = 0
+    b = 1000
+    iter = 1
+    max_iter = 100
+    min_size_object = 0.001 * mask.size
+    merge_thresh = -50
+    epsilon = 0.0001
+    while True:
+        prev_thresh = merge_thresh
+        merge_thresh = (a + b) / 2.0
+
+        if method == 'color':
+            g = graph.rag_mean_color(I, L)
+            # lc = graph.draw_rag(L, g, Islic)
+            L2 = graph.merge_hierarchical(L, g, thresh=merge_thresh, rag_copy=False,
+                                          in_place_merge=True,
+                                          merge_func=merge_mean_color,
+                                          weight_func=_weight_mean_color)
+        elif method == 'entropy':
+            g = graph.region_adjacency_graph(L, image=I, describe_func=entropy_rag)
+            L2 = graph.merge_hierarchical(L, g, thresh=merge_thresh, rag_copy=False,
+                                          in_place_merge=True,
+                                          merge_func=merge_entropy,
+                                          weight_func=_weight_entropy,
+                                          image=I)
+        elif method == 'haralick':
+            g = graph.region_adjacency_graph(L, image=I, describe_func=haralick_rag)
+            L2 = graph.merge_hierarchical(L, g, thresh=merge_thresh, rag_copy=False,
+                                          in_place_merge=True,
+                                          merge_func=merge_haralick,
+                                          weight_func=_weight_haralick,
+                                          image=I)
+
+        # Deletes superpixels outside the mask, removes small objects
+        # and relabel de superpixels
+        L2 *= mask
+        L2 = remove_small_objects(L2, min_size=min_size_object)
+        L2, _, _ = relabel_sequential(L2)
+
+        # Stop criterion by max iteration
+        if iter > max_iter:
+            break
+        iter += 1
+
+        # Stop criterion by threshold delta
+        if np.abs(prev_thresh - merge_thresh) < epsilon:
+            break
+
+        print 'it:', iter, ' T: ', a, b, merge_thresh, 'L: ', L2.max()
+
+        if L2.max() < 2:
+            b = merge_thresh
+        elif L2.max() > 2:
+            a = merge_thresh
+        else:
+            break
 
     Islic2 = mark_boundaries(I, L2)
 
@@ -216,10 +261,46 @@ def segment(I, mask, method):
     # imshow(lc2, cmap='gray')
     # show()
 
+    #Isegmented = texture_separation(L2label, IGray, mask)
+    #Isegmented = coequialization_saliency(IGray, L2label, mask)
     Isegmented = max_jaccard_criterion(IOtsu, L2label, mask)
     #Isegmented = edge_support_criterion(ICanny, L2label)
     return Isegmented, Islic, Islic2, IOtsu
 
+
+def texture_separation(L, G, mask):
+    options = {
+        'weight': 0,  # Weigth of the histogram bins
+        'vdiv': 1,  # one vertical divition
+        'hdiv': 1,  # one horizontal divition
+        'samples': 8,  # number of neighbor samples
+        'mappingtype': 'nri_uniform'  # uniform LBP
+    }
+    for l in range(L.max() + 1):
+        x, _ = Bfx_lbp(G * (L == l), L == l, options)
+
+
+def coequialization_saliency(I, labels, mask):
+
+    sal = np.zeros_like(labels)
+    for i in range(labels.max() + 1):
+        for j in range(i + 1, labels.max() + 1):
+            A = I * (np.logical_or(labels == i, labels == j))
+            A = equalize_hist(A)
+            if A.sum() <= 0 or (A.max() == A.min()):
+                continue
+            A = A < threshold_otsu(A)
+            sal += A.astype(int)
+
+    sal = sal.astype(float) / (labels.max()*(labels.max() + 1)/2.0) * mask
+
+    Isegmented = np.zeros(labels.shape, dtype=bool)
+    for i in range(labels.max() + 1):
+        aa = np.mean(sal * (labels == i))
+        if aa > 0.5:
+            Isegmented = np.logical_or(Isegmented, labels == i)
+
+    return Isegmented
 
 def edge_support_criterion(edges, labels):
 
@@ -266,3 +347,14 @@ def max_jaccard_criterion(IOtsu, L2label, mask):
     return Isegmented
 
 
+def segmentYCrCb(I, mask, method):
+    YCrCb = cv2.cvtColor(I, cv2.COLOR_BGR2YCR_CB)
+
+    ii, jj = np.where(np.logical_and(YCrCb[:, :, 1] > 133,
+                                     np.logical_and(YCrCb[:, :, 1] < 173,
+                                                    np.logical_and(YCrCb[:, :, 2] > 77, YCrCb[:, :, 2] < 127))))
+
+    Isegmented = np.ones(I.shape[0:2]).astype(bool)
+    Isegmented[ii, jj] = False
+
+    return Isegmented, Isegmented, Isegmented, Isegmented
