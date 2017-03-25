@@ -62,8 +62,8 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
     #dataset.set_sample(image_names=['IMD155', 'IMD306', 'IMD382', 'IMD048', 'IMD347', 'IMD386', 'IMD103', 'IMD203', 'IMD312', 'IMD085', 'IMD424', 'IMD384', 'IMD037', 'IMD080', 'IMD369', 'IMD431', 'IMD339', 'IMD031', 'IMD108', 'IMD226'])
     #dataset.exclude_from_sample(image_names=['IMD417'])
     #dataset.exclude_from_sample(image_names=['IMG006', 'IMD008', 'IMD009', 'IMD014', 'IMD019', 'IMD023', 'IMD024', 'IMD032', 'IMD033', 'IMD035', 'IMD037', 'IMD048', 'IMD049', 'IMD058', 'IMD061', 'IMD064', 'IMD085', 'IMD088', 'IMD090', 'IMD091', 'IMD101', 'IMD105', 'IMD112', 'IMD118', 'IMD126', 'IMD135', 'IMD137', 'IMD138', 'IMD147', 'IMD152', 'IMD153', 'IMD154', 'IMD155', 'IMD157', 'IMD159', 'IMD160', 'IMD166', 'IMD168', 'IMD170', 'IMD177', 'IMD182', 'IMD196', 'IMD198', 'IMD200', 'IMD207', 'IMD208', 'IMD219', 'IMD240', 'IMD251', 'IMD254', 'IMD278', 'IMD279', 'IMD280', 'IMD284', 'IMD304', 'IMD339', 'IMD349', 'IMD356', 'IMD360', 'IMD364', 'IMD367', 'IMD368', 'IMD371', 'IMD372', 'IMD375', 'IMD378', 'IMD381', 'IMD382', 'IMD388', 'IMD390', 'IMD397', 'IMD398', 'IMD400', 'IMD403', 'IMD404', 'IMD405', 'IMD406', 'IMD407', 'IMD408', 'IMD409', 'IMD410', 'IMD411', 'IMD413', 'IMD417', 'IMD419', 'IMD420', 'IMD421', 'IMD424', 'IMD425', 'IMD426', 'IMD427', 'IMD430', 'IMD431', 'IMD432', 'IMD433', 'IMD435', 'IMD436'])
-    dataset.set_sample(image_names=['IMG006', 'IMD008', 'IMD009', 'IMD014', 'IMD019', 'IMD023', 'IMD024', 'IMD032', 'IMD033', 'IMD035', 'IMD037', 'IMD048', 'IMD049', 'IMD058', 'IMD061', 'IMD064', 'IMD085', 'IMD088', 'IMD090', 'IMD091', 'IMD101', 'IMD105', 'IMD112', 'IMD118', 'IMD126', 'IMD135', 'IMD137', 'IMD138', 'IMD147', 'IMD152', 'IMD153', 'IMD154', 'IMD155', 'IMD157', 'IMD159', 'IMD160', 'IMD166', 'IMD168', 'IMD170', 'IMD177', 'IMD182', 'IMD196', 'IMD198', 'IMD200', 'IMD207', 'IMD208', 'IMD219', 'IMD240', 'IMD251', 'IMD254', 'IMD278', 'IMD279', 'IMD280', 'IMD284', 'IMD304', 'IMD339', 'IMD349', 'IMD356', 'IMD360', 'IMD364', 'IMD367', 'IMD368', 'IMD371', 'IMD372', 'IMD375', 'IMD378', 'IMD381', 'IMD382', 'IMD388', 'IMD390', 'IMD397', 'IMD398', 'IMD400', 'IMD403', 'IMD404', 'IMD405', 'IMD406', 'IMD407', 'IMD408', 'IMD409', 'IMD410', 'IMD411', 'IMD413', 'IMD417', 'IMD419', 'IMD420', 'IMD421', 'IMD424', 'IMD425', 'IMD426', 'IMD427', 'IMD430', 'IMD431', 'IMD432', 'IMD433', 'IMD435', 'IMD436'])
-    #dataset.set_sample(image_names=['IMD058'])
+    #dataset.set_sample(image_names=['IMG006', 'IMD008', 'IMD009', 'IMD014', 'IMD019', 'IMD023', 'IMD024', 'IMD032', 'IMD033', 'IMD035', 'IMD037', 'IMD048', 'IMD049', 'IMD058', 'IMD061', 'IMD064', 'IMD085', 'IMD088', 'IMD090', 'IMD091', 'IMD101', 'IMD105', 'IMD112', 'IMD118', 'IMD126', 'IMD135', 'IMD137', 'IMD138', 'IMD147', 'IMD152', 'IMD153', 'IMD154', 'IMD155', 'IMD157', 'IMD159', 'IMD160', 'IMD166', 'IMD168', 'IMD170', 'IMD177', 'IMD182', 'IMD196', 'IMD198', 'IMD200', 'IMD207', 'IMD208', 'IMD219', 'IMD240', 'IMD251', 'IMD254', 'IMD278', 'IMD279', 'IMD280', 'IMD284', 'IMD304', 'IMD339', 'IMD349', 'IMD356', 'IMD360', 'IMD364', 'IMD367', 'IMD368', 'IMD371', 'IMD372', 'IMD375', 'IMD378', 'IMD381', 'IMD382', 'IMD388', 'IMD390', 'IMD397', 'IMD398', 'IMD400', 'IMD403', 'IMD404', 'IMD405', 'IMD406', 'IMD407', 'IMD408', 'IMD409', 'IMD410', 'IMD411', 'IMD413', 'IMD417', 'IMD419', 'IMD420', 'IMD421', 'IMD424', 'IMD425', 'IMD426', 'IMD427', 'IMD430', 'IMD431', 'IMD432', 'IMD433', 'IMD435', 'IMD436'])
+    #dataset.set_sample(image_names=['IMD035', 'IMD085', 'IMD424', 'IMD105', 'IMD159', 'IMD166'])
     if segmentationProcess or featuresProcess:
         print("{:10} {:20} {:20}".format('Imagen', 'MSE', 'JACCARD'))
         for image_idx in range(dataset.num_images):
@@ -82,7 +82,7 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
                 #Segment the each mole
                 print('Segmenting image {0} ({1} / {2})'.format(dataset.image_names[image_idx], image_idx + 1, dataset.num_images))
                 #Isegmented, Islic, Islic2, IOtsu = segment(I, mask, method=method)
-                Isegmented, Islic, Islic2, IOtsu = segment(I, mask, method=method)
+                Isegmented, LMerged, Islic2, IOtsu, Superpixels = segment(I, mask, method=method)
 
                 auxmse = compare_mse(GT, Isegmented)
                 all_mse.append(auxmse)
@@ -97,8 +97,8 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
                     os.makedirs(pathResults)
 
                 subplot(2, 3, 1)
-                title('Original')
-                imshow(IOriginal)
+                title('Original + Superpixels')
+                imshow(Superpixels)
                 subplot(2, 3, 2)
                 title('Ground Truth')
                 imshow(GT, cmap='gray')
@@ -106,8 +106,8 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
                 title('Our Segmentation')
                 imshow(Isegmented, cmap='gray')
                 subplot(2, 3, 4)
-                title('SuperPixels')
-                imshow(Islic)
+                title('Labels')
+                imshow(LMerged)
                 subplot(2, 3, 5)
                 title('Merged SuperPixels')
                 imshow(Islic2)
@@ -122,6 +122,9 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
             else: #SEGMENTATION IS DONE AND SAVED
                 # reads the image information from the dataset
                 IOriginal = dataset.get_image_data(image_idx)
+                #II = rgb2lab(IOriginal)
+                #imshow(II[:, :, 0])
+                #show()
                 #Gets the mask to avoid dark areas in segmentation
                 mask = get_mask(IOriginal.shape[0:2])
                 I = gray2rgb(mask) * IOriginal
@@ -530,7 +533,7 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
             #print(T)"""
 
         op = {
-            'm': 25,
+            'm': 30,
             'show': True,
             'b': {'name': 'lda', 'options': {'p': []}}
         }
@@ -538,6 +541,9 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
         Xclean = Xclean[:, s]
         Xnclean = Xnclean[s]
         print (Xnclean)
+
+        figure()
+        Bio_plotfeatures(Xclean[:, 0:5], d)
 
         op = {
             'b': [
@@ -574,6 +580,6 @@ pathSegmentation = 'results'
 magic(imgPath=path,
       imgResults=pathSegmentation,
       method='color',
-      segmentationProcess=True,
+      segmentationProcess=False,
       featuresProcess=True,
       trainAndTest=True)

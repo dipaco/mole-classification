@@ -185,62 +185,13 @@ def segment(I, mask, method):
 
     # Merge superpixels until get just 2 (lession and background) or until
     # convergence criterion is reached
-    a = 0
-    b = 1000
-    iter = 1
-    max_iter = 100
-    min_size_object = 0.001 * mask.size
-    merge_thresh = -50
-    epsilon = 0.0001
-    while True:
-        prev_thresh = merge_thresh
-        merge_thresh = (a + b) / 2.0
+    min_size_object = 0.02 * mask.size
+    merge_thresh = find_merge_threshold(I, L, mask, upper_thresh=1000, epsilon=0.0001, max_iter=100, method=method, min_size_object=min_size_object)
+    L2 = merge_superpixels(I, L, mask, merge_thresh, method, min_size_object)
 
-        if method == 'color':
-            g = graph.rag_mean_color(I, L)
-            # lc = graph.draw_rag(L, g, Islic)
-            L2 = graph.merge_hierarchical(L, g, thresh=merge_thresh, rag_copy=False,
-                                          in_place_merge=True,
-                                          merge_func=merge_mean_color,
-                                          weight_func=_weight_mean_color)
-        elif method == 'entropy':
-            g = graph.region_adjacency_graph(L, image=I, describe_func=entropy_rag)
-            L2 = graph.merge_hierarchical(L, g, thresh=merge_thresh, rag_copy=False,
-                                          in_place_merge=True,
-                                          merge_func=merge_entropy,
-                                          weight_func=_weight_entropy,
-                                          image=I)
-        elif method == 'haralick':
-            g = graph.region_adjacency_graph(L, image=I, describe_func=haralick_rag)
-            L2 = graph.merge_hierarchical(L, g, thresh=merge_thresh, rag_copy=False,
-                                          in_place_merge=True,
-                                          merge_func=merge_haralick,
-                                          weight_func=_weight_haralick,
-                                          image=I)
-
-        # Deletes superpixels outside the mask, removes small objects
-        # and relabel de superpixels
-        L2 *= mask
-        L2 = remove_small_objects(L2, min_size=min_size_object)
-        L2, _, _ = relabel_sequential(L2)
-
-        # Stop criterion by max iteration
-        if iter > max_iter:
-            break
-        iter += 1
-
-        # Stop criterion by threshold delta
-        if np.abs(prev_thresh - merge_thresh) < epsilon:
-            break
-
-        print 'it:', iter, ' T: ', a, b, merge_thresh, 'L: ', L2.max()
-
-        if L2.max() < 2:
-            b = merge_thresh
-        elif L2.max() > 2:
-            a = merge_thresh
-        else:
-            break
+    #imshow(L2)
+    #colorbar()
+    #show()
 
     Islic2 = mark_boundaries(I, L2)
 
@@ -249,7 +200,7 @@ def segment(I, mask, method):
 
     IGray = rgb2gray(I)  # * mask
     ICanny = dilation(np.logical_and(canny(IGray, sigma=2), erosion(mask, disk(3))), disk(3))
-    #IGray = equalize_adapthist(IGray)
+    IGray = equalize_adapthist(IGray)
     thresh = threshold_otsu(IGray)
     IOtsu = IGray <= thresh
     IOtsu = np.logical_and(IOtsu, mask)
@@ -265,7 +216,77 @@ def segment(I, mask, method):
     #Isegmented = coequialization_saliency(IGray, L2label, mask)
     Isegmented = max_jaccard_criterion(IOtsu, L2label, mask)
     #Isegmented = edge_support_criterion(ICanny, L2label)
-    return Isegmented, Islic, Islic2, IOtsu
+    return Isegmented, L2, Islic2, IOtsu, Islic
+
+
+def find_merge_threshold(I, L, mask, upper_thresh, epsilon, max_iter, method, min_size_object):
+    a = 0
+    b = upper_thresh
+    iter = 0
+    merge_thresh = -50
+    optimal_thresh = (a + b) / 2.0
+    while True:
+        iter += 1
+        prev_thresh = merge_thresh
+        merge_thresh = (a + b) / 2.0
+
+        L2 = merge_superpixels(I, L, mask, merge_thresh, method, min_size_object)
+
+        print 'it:', iter, ' T: ', a, b, merge_thresh, 'L: ', L2.max()
+
+        '''imshow(L2)
+        colorbar()
+        show()'''
+
+        if L2.max() < 2:
+            b = merge_thresh
+        elif L2.max() > 2:
+            optimal_thresh = merge_thresh
+            a = merge_thresh
+        else:
+            optimal_thresh = merge_thresh
+            break
+
+        # Stop criterion by max iteration
+        if iter >= max_iter:
+            break
+
+        # Stop criterion by threshold delta
+        if np.abs(prev_thresh - merge_thresh) < epsilon:
+            break
+
+    return optimal_thresh
+
+
+def merge_superpixels(I, L, mask, merge_thresh, method, min_size_object):
+    if method == 'color':
+        g = graph.rag_mean_color(I, L)
+        # lc = graph.draw_rag(L, g, Islic)
+        L2 = graph.merge_hierarchical(L, g, thresh=merge_thresh, rag_copy=False,
+                                      in_place_merge=True,
+                                      merge_func=merge_mean_color,
+                                      weight_func=_weight_mean_color)
+    elif method == 'entropy':
+        g = graph.region_adjacency_graph(L, image=I, describe_func=entropy_rag)
+        L2 = graph.merge_hierarchical(L, g, thresh=merge_thresh, rag_copy=False,
+                                      in_place_merge=True,
+                                      merge_func=merge_entropy,
+                                      weight_func=_weight_entropy,
+                                      image=I)
+    elif method == 'haralick':
+        g = graph.region_adjacency_graph(L, image=I, describe_func=haralick_rag)
+        L2 = graph.merge_hierarchical(L, g, thresh=merge_thresh, rag_copy=False,
+                                      in_place_merge=True,
+                                      merge_func=merge_haralick,
+                                      weight_func=_weight_haralick,
+                                      image=I)
+
+    # Deletes superpixels outside the mask, removes small objects
+    # and relabel de superpixels
+    L2 *= mask
+    L2 = remove_small_objects(L2, min_size=min_size_object)
+    L2, _, _ = relabel_sequential(L2)
+    return L2
 
 
 def texture_separation(L, G, mask):
@@ -325,14 +346,13 @@ def edge_support_criterion(edges, labels):
 
 def max_jaccard_criterion(IOtsu, L2label, mask):
     J = np.zeros(L2label.max() + 1)
-    for i in range(0, L2label.max() + 1):
+    for i in range(1, L2label.max() + 1):
         lbl = np.logical_and((L2label == i), mask)
-        lbl = binary_fill_holes(lbl)
         jaccard = compare_jaccard(IOtsu, lbl)
         J[i] = jaccard
     sMask = np.logical_and((L2label == np.argmax(J)), mask)
-    sMask = closing(sMask, selem=disk(3))
     slabel = label(sMask)
+
     # Calculates the area of each label to select the one with the
     # máximum área
     max = 0
