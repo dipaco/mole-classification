@@ -232,7 +232,7 @@ def find_merge_threshold(I, L, mask, upper_thresh, epsilon, max_iter, method, mi
 
         L2 = merge_superpixels(I, L, mask, merge_thresh, method, min_size_object)
 
-        print 'it:', iter, ' T: ', a, b, merge_thresh, 'L: ', L2.max()
+        print('it:', iter, ' T: ', a, b, merge_thresh, 'L: ', L2.max())
 
         '''imshow(L2)
         colorbar()
