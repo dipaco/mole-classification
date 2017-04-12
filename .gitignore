@@ -10,3 +10,4 @@ node_modules
 **/_pycache__/**
 **/PH2Dataset/**
 *.mat
+**/results 2/**
