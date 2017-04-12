@@ -8,7 +8,7 @@ from skimage.measure import regionprops
 from skimage.segmentation import slic, mark_boundaries, relabel_sequential
 from skimage.filters import threshold_otsu
 from skimage.filters.rank import entropy as local_entropy
-from skimage.morphology import label, closing, disk, dilation, erosion, square, remove_small_objects
+from skimage.morphology import label, closing, disk, dilation, erosion, square, remove_small_objects, opening
 from skimage.feature import canny
 from skimage.exposure import equalize_hist, rescale_intensity, equalize_adapthist
 from future import graph
@@ -363,6 +363,7 @@ def max_jaccard_criterion(IOtsu, L2label, mask):
             iMax = i
     Isegmented = slabel == iMax
     Isegmented = binary_fill_holes(Isegmented)
+    Isegmented = opening(Isegmented, selem=disk(8))
     Isegmented = dilation(Isegmented, selem=disk(8))
     return Isegmented
 
