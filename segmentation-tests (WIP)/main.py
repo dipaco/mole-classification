@@ -27,7 +27,7 @@ from balu.PerformanceEvaluation import Bev_performance, Bev_confusion
 from skimage.feature import multiblock_lbp
 
 #Segmentation
-from segmentation import segment, segmentYCrCb
+from segmentation import segment#, segmentYCrCb
 from utils import get_mask, compare_jaccard
 from features import getFeatures
 
@@ -67,7 +67,7 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
 
     # Con pelos
     #dataset.set_sample(image_names=['IMD002', 'IMD003', 'IMD009', 'IMD014', 'IMD024', 'IMD040', 'IMD041', 'IMD048', 'IMD049', 'IMD085', 'IMD101', 'IMD120', 'IMD126', 'IMD146', 'IMD155', 'IMD171', 'IMD177', 'IMD196', 'IMD206', 'IMD251', 'IMD304', 'IMD305', 'IMD306', 'IMD372', 'IMD375', 'IMD405', 'IMD410', 'IMD411'])
-    dataset.set_sample(image_names=['IMD019'])
+    #dataset.set_sample(image_names=['IMD019'])
     #dataset.set_sample(image_names=['IMD035', 'IMD085', 'IMD424', 'IMD105', 'IMD159', 'IMD166'])
     if segmentationProcess or featuresProcess:
         print("{:10} {:20} {:20}".format('Imagen', 'MSE', 'JACCARD'))
@@ -253,5 +253,5 @@ magic(imgPath=path,
       imgResults=pathSegmentation,
       method='color',
       segmentationProcess=True,
-      featuresProcess=False,
+      featuresProcess=True,
       trainAndTest=True)

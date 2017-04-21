@@ -367,7 +367,7 @@ def max_jaccard_criterion(IOtsu, L2label, mask):
     Isegmented = dilation(Isegmented, selem=disk(8))
     return Isegmented
 
-
+'''
 def segmentYCrCb(I, mask, method):
     YCrCb = cv2.cvtColor(I, cv2.COLOR_BGR2YCR_CB)
 
@@ -379,3 +379,4 @@ def segmentYCrCb(I, mask, method):
     Isegmented[ii, jj] = False
 
     return Isegmented, Isegmented, Isegmented, Isegmented
+'''
