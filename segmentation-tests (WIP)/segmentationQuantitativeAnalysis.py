@@ -25,14 +25,43 @@ def get_accuracy(TP, TN, FN, FP):
     return (TP + TN) / (TP + FN + TN + FP)
 
 
+# F-measure
+def recP(TP, FN):
+    return TP / (TP + FN)
+
+
+def recN(TN, FP):
+    return TN / (TN + FP)
+
+
+def rec(TP, TN, FN, FP):
+    return (recP(TP, FN) + recN(TN, FP)) / 2
+
+
+def precP(TP, FP):
+    return TP / (TP + FP)
+
+
+def precN(TN, FN):
+    return TN / (TN + FN)
+
+
+def prec(TP, TN, FN, FP):
+    return (precP(TP, FP) + precN(TN, FN)) / 2
+
+
+def fMeasureAux(TP, TN, FN, FP):
+    return 2 * ((prec(TP, TN, FN, FP) * rec(TP, TN, FN, FP)) / (prec(TP, TN, FN, FP) + rec(TP, TN, FN, FP)))
+
+
 def allM(TP, TN, FN, FP):
     sensitivity = get_sensitivity(TP, FN)
     specificity = get_specificity(TN, FP)
     accuracy = get_accuracy(TP, TN, FN, FP)
     specificity_wiki = get_specificity_wiki(TN, FP)
-    # TODO: F-measure
+    fMeasure = fMeasureAux(TP, TN, FN, FP)
 
-    return sensitivity, specificity, accuracy, specificity_wiki
+    return sensitivity, specificity, accuracy, specificity_wiki, fMeasure
 
 
 def stat(imgPath, imgResults):
@@ -44,6 +73,7 @@ def stat(imgPath, imgResults):
     specificityAll = np.array([])
     specificity_wikiAll = np.array([])
     accuracyAll = np.array([])
+    fMeasure = 0
 
     #Set a class to manage the whole dataset
     dataset = PH2Dataset('PH2Dataset')
@@ -161,12 +191,13 @@ def stat(imgPath, imgResults):
         r[ii, jj, 1] = 255
         r[ii, jj, 2] = 0
 
-        sensitivity, specificity, accuracy, specificity_wiki = allM(TP, TN, FN, FP)
+        sensitivity, specificity, accuracy, specificity_wiki, fMeasurei = allM(TP, TN, FN, FP)
 
         sensitivityAll = np.append(sensitivityAll, sensitivity)
         specificity_wikiAll = np.append(specificity_wikiAll, specificity_wiki)
         specificityAll = np.append(specificityAll, specificity)
         accuracyAll = np.append(accuracyAll, accuracy)
+        fMeasure += fMeasurei
 
         #imshow(r)
         #show()
@@ -183,10 +214,13 @@ def stat(imgPath, imgResults):
     accuracy = np.mean(accuracyAll)
     accuracyStd = np.std(accuracyAll)
 
+    fMeasure /= dataset.num_images
+
     print('Sensitivity:', sensitivity, '±', sensitivityStd)
     print('Specificity:', specificity, '±', specificityStd)
     print('Specificity_wiki:', specificity_wiki, '±', specificity_wikiStd)
     print('Accuracy:', accuracy, '±', accuracyStd)
+    print('F-measure:', fMeasure)
 
 
 path = 'imgs'
