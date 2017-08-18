@@ -29,7 +29,7 @@ from skimage.feature import multiblock_lbp
 #Segmentation
 from segmentation import segment#, segmentYCrCb
 from utils import get_mask, compare_jaccard
-from features import getFeatures
+from features import get_features
 
 def magic(imgPath, imgResults, method='color', segmentationProcess=True, featuresProcess=True, trainAndTest=True):
     """
@@ -49,9 +49,9 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
     all_jaccard = []
 
     if featuresProcess:
-        X = []
+        X = np.array([])
         Xn = []
-        d = []
+        d = np.array([])
         imagesNames = []
 
     #Set a class to manage the whole dataset
@@ -69,6 +69,7 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
     #dataset.set_sample(image_names=['IMD002', 'IMD003', 'IMD009', 'IMD014', 'IMD024', 'IMD040', 'IMD041', 'IMD048', 'IMD049', 'IMD085', 'IMD101', 'IMD120', 'IMD126', 'IMD146', 'IMD155', 'IMD171', 'IMD177', 'IMD196', 'IMD206', 'IMD251', 'IMD304', 'IMD305', 'IMD306', 'IMD372', 'IMD375', 'IMD405', 'IMD410', 'IMD411'])
     #dataset.set_sample(image_names=['IMD019'])
     #dataset.set_sample(image_names=['IMD035', 'IMD085', 'IMD424', 'IMD105', 'IMD159', 'IMD166'])
+
     if segmentationProcess or featuresProcess:
         print("{:10} {:20} {:20}".format('Imagen', 'MSE', 'JACCARD'))
         for image_idx in range(dataset.num_images):
@@ -121,7 +122,6 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
                 imshow(IOtsu, cmap='gray')
                 savefig(pathResults + '/' + image + '_our.png')
 
-
                 imsave(pathSegmentation + '/' + image + '_our.png', 255*Isegmented.astype(int), cmap='gray')
 
             else: #SEGMENTATION IS DONE AND SAVED
@@ -141,14 +141,17 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
                     print('Extracting feature to image {0} ({1} / {2})'.format(dataset.image_names[image_idx],
                                                                                image_idx + 1,
                                                                                dataset.num_images))
-                    Xstack, Xnstack = getFeatures(I, Isegmented)
+                    ''' Feature's method options:
+                        - pennisi
+                    '''
+                    Xstack, Xnstack = get_features(I, Isegmented, method='pennisi')
 
-                    X.append(Xstack)
-                    if len(Xn) == 0:
-                        Xn = Xnstack
+                    X = np.vstack((X, Xstack)) if X.size > 0 else Xstack
+                    Xn = Xnstack
 
                     #print(dataset.get_image_class(image_idx))
-                    d.extend([dataset.get_image_class(image_idx)])
+                    d = np.append(d, [dataset.get_image_class(image_idx)])
+                    #d.extend([dataset.get_image_class(image_idx)])
                     imagesNames.extend([image])
 
         if featuresProcess:
@@ -164,19 +167,20 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
             print("{:10} {:0.20f} {:0.20f}".format('MSE', sum(all_mse) / len(all_mse), np.std(all_mse)))
             print("{:10} {:0.20f} {:0.20f}".format('JACCARD', sum(all_jaccard) / len(all_jaccard), np.std(all_jaccard)))
 
-    if trainAndTest:
+    else:
         data = loadmat('X-Xn-d-names.mat')
         X = data['X']
         Xn = data['Xn']
-        d = data['d'][0]
+        d = data['d'].T
         imagesNames = data['imagesNames']
 
+    if trainAndTest:
         # training
         print('training')
-        sclean = Bfs_clean(X, 1)
-        Xclean = X[:, sclean]
-        Xnclean = Xn[sclean]
-        d = (d > 1).astype(int) + 1
+        '''sclean = Bfs_clean(X, 1)
+        X = X[:, sclean]
+        Xn = Xn[sclean]'''
+        d = (d > 2).astype(int) + 1
         #Xtrain, dtrain, Xtest, dtest = Bds_nostratify(Xclean, d, 0.6)
 
 
@@ -204,18 +208,18 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
             print(b[i]['name'], ': ', p)
             #print(T)"""
 
-        op = {
+        '''op = {
             'm': 30,
             'show': True,
             'b': {'name': 'knn', 'options': {'k': 5}}
         }
-        s = Bfs_sfs(Xclean, d, op)
-        Xclean = Xclean[:, s]
-        Xnclean = Xnclean[s]
-        print (Xnclean)
+        s = Bfs_sfs(X, d, op)
+        X = X[:, s]
+        Xn = Xn[s]
+        print (Xn)'''
 
         figure()
-        Bio_plotfeatures(Xclean[:, 0:5], d)
+        Bio_plotfeatures(X[:, [49, 48]], d, Xn[[49, 48]])
 
         op = {
             'b': [
@@ -236,7 +240,7 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
             'show': True  # 10 groups cross-validation for 90% confidence
         }
 
-        p, ci = Bev_crossval(Xclean, d, op)  # cross valitadion
+        p, ci = Bev_crossval(X, d, op)  # cross valitadion
         print(p)
         print(ci)
 

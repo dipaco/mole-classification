@@ -1,16 +1,58 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 from skimage.transform import rescale
-from skimage.color import rgb2gray, label2rgb, gray2rgb, rgb2lab
+from skimage.color import rgb2gray, label2rgb, gray2rgb, rgb2lab, rgb2hsv
 from balu.DataSelectionAndGeneration import Bds_nostratify
 from balu.FeatureExtraction import Bfx_haralick, Bfx_geo, Bfx_basicgeo, Bfx_lbp
 from skimage.exposure import histogram
 from scipy.special import entr
 from skimage.feature import multiblock_lbp
 from skimage.measure import label, regionprops
+from matplotlib.pyplot import imshow, show, colorbar, bar
 
 
-def getFeatures(I, Isegmented):
+def get_features(I, Isegmented, method='pennisi'):
+
+    if method == 'pennisi':
+        return get_features_pennisi(I, Isegmented)
+    else:
+        return getFeatures_old(I, Isegmented)
+
+
+def get_features_pennisi(I, Isegmented):
+    Xstack = np.zeros((1, 3*16 + 3))
+    Xnstack = []
+    HSV = rgb2hsv(I) * np.stack(3*(Isegmented,), 2)
+    #imshow(HSV[:, :, 2])
+    #colorbar()
+    #show()
+    h, _ = np.histogram(HSV[:, :, 0].ravel(), 16, range=(0, 1))
+    s, _ = np.histogram(HSV[:, :, 1].ravel(), 16, range=(0, 1))
+    v, _ = np.histogram(HSV[:, :, 2].ravel(), 16, range=(0, 1))
+    Xstack[0, 0:16] = h
+    Xstack[0, 16:32] = s
+    Xstack[0, 32:48] = v
+    #bar(np.arange(16), v)
+    #show()
+    Xnstack.extend(['H bin {}'.format(i) for i in range(16)])
+    Xnstack.extend(['S bin {}'.format(i) for i in range(16)])
+    Xnstack.extend(['V bin {}'.format(i) for i in range(16)])
+
+    options = {'b': [
+        {'name': 'basicgeo', 'options': {'show': False}},  # basic geometric features
+        #{'name': 'hugeo', 'options': {'show': False}},  # Hu moments
+        #{'name': 'flusser', 'options': {'show': False}},  # Flusser moments
+        #{'name': 'fourierdes', 'options': {'show': False, 'Nfourierdes': 12}},  # Fourier descriptors
+    ]}
+
+    Xtmp, Xntmp = Bfx_geo(Isegmented, options)
+
+    Xstack[0, 48:] = Xtmp[0, [13, 16, 17]]
+    Xnstack.extend(['Solidity', 'Convex Area', 'Filled Area'])
+    return Xstack, np.array(Xnstack)
+
+
+def getFeatures_old(I, Isegmented):
 
     Ilab = rgb2lab(I)
     Ilab[:, :, 0] *= 2.55
