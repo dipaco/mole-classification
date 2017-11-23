@@ -171,10 +171,10 @@ def merge_mean_color(graph, src, dst, image, labels):
                                      graph.node[dst]['pixel count'])
 
 
-def segment(I, mask, method):
+def segment(I, mask, method, k=400):
 
     # n_segments sujeto a cambios para optimización de la segmentación
-    L = slic(I, n_segments=400) * mask
+    L = slic(I, n_segments=k) * mask
     Islic = mark_boundaries(I, L)
 
     '''RECOMENDED THRESHOLDS BY METHOD:

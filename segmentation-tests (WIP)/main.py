@@ -69,6 +69,8 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
     #dataset.set_sample(image_names=['IMD002', 'IMD003', 'IMD009', 'IMD014', 'IMD024', 'IMD040', 'IMD041', 'IMD048', 'IMD049', 'IMD085', 'IMD101', 'IMD120', 'IMD126', 'IMD146', 'IMD155', 'IMD171', 'IMD177', 'IMD196', 'IMD206', 'IMD251', 'IMD304', 'IMD305', 'IMD306', 'IMD372', 'IMD375', 'IMD405', 'IMD410', 'IMD411'])
     #dataset.set_sample(image_names=['IMD019'])
     #dataset.set_sample(image_names=['IMD035', 'IMD085', 'IMD424', 'IMD105', 'IMD159', 'IMD166'])
+    #dataset.set_sample(image_names=['IMD014', 'IMD404', 'IMD003', 'IMD306', 'IMD312', 'IMD368', 'IMD430', 'IMD397', 'IMD400', 'IMD372', 'IMD375', 'IMD388', 'IMD418'])
+    dataset.set_sample(image_names=['IMD242', 'IMD368', 'IMD306'])
 
     if segmentationProcess or featuresProcess:
         print("{:10} {:20} {:20}".format('Imagen', 'MSE', 'JACCARD'))
@@ -88,7 +90,8 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
                 #Segment the each mole
                 print('Segmenting image {0} ({1} / {2})'.format(dataset.image_names[image_idx], image_idx + 1, dataset.num_images))
                 #Isegmented, Islic, Islic2, IOtsu = segment(I, mask, method=method)
-                Isegmented, LMerged, Islic2, IOtsu, Superpixels = segment(I, mask, method=method)
+                k = 400
+                Isegmented, LMerged, Islic2, IOtsu, Superpixels = segment(I, mask, method=method, k=k)
 
                 auxmse = compare_mse(GT, Isegmented)
                 all_mse.append(auxmse)
@@ -102,7 +105,7 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
                 if not os.path.exists(pathResults):
                     os.makedirs(pathResults)
 
-                subplot(2, 3, 1)
+                '''subplot(2, 3, 1)
                 title('Original + Superpixels')
                 imshow(Superpixels)
                 subplot(2, 3, 2)
@@ -120,9 +123,37 @@ def magic(imgPath, imgResults, method='color', segmentationProcess=True, feature
                 subplot(2, 3, 6)
                 title('Otsu')
                 imshow(IOtsu, cmap='gray')
-                savefig(pathResults + '/' + image + '_our.png')
+                savefig(pathResults + '/' + image + '_our.png')'''
 
                 imsave(pathSegmentation + '/' + image + '_our.png', 255*Isegmented.astype(int), cmap='gray')
+
+                C = np.zeros_like(Isegmented).astype(int)
+                a = np.where(np.logical_and(GT, Isegmented)) # TP
+                b = np.where(np.logical_and(GT, np.logical_not(Isegmented))) #FN
+                d = np.where(np.logical_and(Isegmented, np.logical_not(GT))) #FP
+                C[a] = 1
+                C[b] = 2
+                C[d] = 3
+
+                figure()
+                title('Seg comparison')
+                imshow(C)
+                savefig(pathResults + '/' + image + '_k_{}_seg_comp.png'.format(k))
+
+                figure()
+                title('SLIC Segmentation, k = {}'.format(k))
+                imshow(Superpixels)
+                savefig(pathResults + '/' + image + '_k_{}_seg.png'.format(k))
+
+                figure()
+                title('Merged superpixels')
+                imshow(Islic2)
+                savefig(pathResults + '/' + image + '_k_{}_merged.png'.format(k))
+
+                figure()
+                title('Otsu')
+                imshow(IOtsu, cmap='gray')
+                savefig(pathResults + '/' + image + '_k_{}_otsu.png'.format(k))
 
             else: #SEGMENTATION IS DONE AND SAVED
                 # reads the image information from the dataset
@@ -257,5 +288,5 @@ magic(imgPath=path,
       imgResults=pathSegmentation,
       method='color',
       segmentationProcess=True,
-      featuresProcess=True,
-      trainAndTest=True)
+      featuresProcess=False,
+      trainAndTest=False)
