@@ -28,9 +28,9 @@ class PH2Dataset(BaseDataset):
         classes = []
         for i in range(len(image_dirs)):
 
-            cell_common_nevus = df.icol(2).irow(i + 11)
-            cell_atypical_nevus = df.icol(3).irow(i + 11)
-            cell_melanoma = df.icol(4).irow(i + 11)
+            cell_common_nevus = df.iloc[i + 11, 2]
+            cell_atypical_nevus = df.iloc[i + 11, 3]
+            cell_melanoma = df.iloc[i + 11, 4]
 
             if cell_common_nevus == 'X':
                 image_class = 1
@@ -40,7 +40,7 @@ class PH2Dataset(BaseDataset):
                 image_class = 3
 
             classes.append({
-                'name': df.icol(0).irow(i + 11),
+                'name': df.iloc[i + 11, 0],
                 'class': image_class
             })
 
@@ -49,6 +49,8 @@ class PH2Dataset(BaseDataset):
                             image_folder_name + '.bmp')
             ground_truth_filename = join(images_base_folder, image_folder_name, image_folder_name + '_lesion',
                                          image_folder_name + '_lesion.bmp')
+
+
 
             #image class
             results = list(filter(lambda all_classes: all_classes['name'] == image_folder_name, classes))
