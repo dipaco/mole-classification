@@ -128,8 +128,8 @@ isic_dataset = '/Users/dipaco/Documents/Datasets/ISIC-2017'
 #dataset = PH2Dataset(ph2_dataset_path)
 dataset = ISICDataset(isic_dataset)
 
-min_ = 500
-max_ = 600
+min_ = 900
+max_ = 1000
 dataset.set_sample(image_indices=range(min_, max_))
 
 # Uncomment the following line to use just images: 'IMD242', 'IMD368', 'IMD306', instead of the whole dataset

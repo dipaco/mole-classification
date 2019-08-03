@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
+import matplotlib
+
+matplotlib.use('TkAgg')
 import numpy as np
 from glob import glob
 from abc import ABCMeta, abstractmethod
 from os.path import join, splitext, basename, abspath
-from balu.DataSelectionAndGeneration import Bds_nostratify
 
 
 class MissingAttributeException(Exception):
